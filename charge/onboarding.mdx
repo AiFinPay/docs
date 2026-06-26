@@ -1,0 +1,234 @@
+---
+title: "Become a provider"
+description: "Charge AI agents per call by putting a config-only x402 bridge in front of your API — non-custodial, no contract to sign."
+---
+
+AiFinPay is payment infrastructure for AI agents — the "Stripe for AI agents"
+rail. As a provider you don't change your existing API: you stand a thin
+**x402 bridge** in front of it. The bridge issues the `HTTP 402` challenge,
+verifies the agent's on-chain payment, and only then forwards the request to
+your upstream using **your** API key.
+
+<CardGroup cols={2}>
+  <Card title="Config-only" icon="sliders">
+    Front any JSON HTTP API by editing a `.env` file. No bridge code to fork
+    or maintain — the generic bridge is fully env-driven.
+  </Card>
+  <Card title="Non-custodial & token-free" icon="lock">
+    Per-call revenue settles straight to a wallet you own. No token to buy, no
+    contract to sign, no KYC, no revenue-share bookkeeping.
+  </Card>
+</CardGroup>
+
+## What you need
+
+| Item | Why |
+|------|-----|
+| A `0x` Polygon address (EOA or Safe) | Where your per-call revenue lands. Use a Safe for production — once funded, **you** own that wallet, not AiFinPay. |
+| Your upstream API key | The bridge uses **your** key when forwarding paid requests. You set it as an env var on your own host; AiFinPay never sees it. |
+| A box to run the bridge | A ~50 LoC Node service. Runs on a small VPS or any container platform. |
+| A per-call price | What you charge agents per call, set in USD when you scaffold. |
+
+<Info>
+You do **not** need crypto integration in your existing stack, a wallet for
+your end users (your customers are AI agents that bring their own keypair via
+the AiFinPay SDK), or a compliance/KYC process — settlement is non-custodial
+and happens on-chain in the splitter contract.
+</Info>
+
+## Fast path — config only, no code
+
+If your upstream is a normal JSON HTTP API, use the env-driven
+`_generic-x402-bridge` and scaffold a config in one command. No bridge code is
+written or edited.
+
+<Steps>
+  <Step title="Scaffold a provider config">
+    Run `scripts/new-provider.mjs` with your three knobs and identity flags:
+
+    ```bash
+    node scripts/new-provider.mjs \
+      --slug mybrand --name "MyBrand AI" --category inference \
+      --upstream-url https://api.mybrand.example/v1/chat/completions \
+      --auth-style bearer --route-path /chat/completions --price-usd 0.02
+    ```
+
+    This writes `examples/mybrand-x402-bridge/.env` and
+    `examples/mybrand-x402-bridge/README.md`, and prints the `services.json`
+    registry entry to paste. The script derives `PRICE_WEI` (native POL) and
+    `PRICE_USDC_UNITS` / `PRICE_USDT_UNITS` (6-decimal stables) from your
+    `--price-usd`.
+  </Step>
+
+  <Step title="Add your upstream API key">
+    Open the generated `.env` and fill in the one secret the scaffold leaves
+    blank:
+
+    ```bash
+    UPSTREAM_API_KEY=sk-your-upstream-key
+    ```
+
+    Optionally set `BRIDGE_MERCHANT_WALLET` to your own payout wallet — by
+    default the scaffold points it at the AiFinPay treasury Safe.
+  </Step>
+
+  <Step title="Run the generic bridge with your config">
+    The bridge code lives in `_generic-x402-bridge`; you point it at your
+    scaffolded `.env`:
+
+    ```bash
+    cd examples/_generic-x402-bridge && npm install
+    node --env-file=../mybrand-x402-bridge/.env server.js
+    ```
+
+    Put it behind nginx / Caddy / fly.io / Railway / wherever — it's a plain
+    HTTP service, no special infra.
+  </Step>
+
+  <Step title="Register on the marketplace">
+    Paste the printed registry entry into
+    `oracle-financial-hub-59/backend/services.json`. Once your bridge answers
+    `GET /.well-known/x402.json`, the provider pinger marks it `live` and it
+    becomes auto-selectable via `/api/registry/best`.
+  </Step>
+</Steps>
+
+<Note>
+A manual fork path exists for upstreams that need custom request shaping, but
+the config-only path above is recommended for any standard JSON API.
+</Note>
+
+## The three knobs
+
+Everything provider-specific is one of three env vars. The 402 challenge,
+on-chain verification, replay protection, rate limiting, and splitter
+integration are identical for every provider.
+
+| Knob | Env var | What it does |
+|------|---------|--------------|
+| Upstream URL | `UPSTREAM_URL` | Where the bridge forwards the paid request. |
+| Auth style | `UPSTREAM_AUTH_STYLE` | How the bridge authenticates to your upstream. |
+| Price | `PRICE_WEI` / `PRICE_USDC_UNITS` / `PRICE_USDT_UNITS` | What the agent pays per call (derived from `--price-usd`). |
+
+### Auth styles
+
+`UPSTREAM_AUTH_STYLE` selects how `UPSTREAM_API_KEY` is attached when forwarding:
+
+| Value | Header sent to upstream | Typical upstreams |
+|-------|-------------------------|-------------------|
+| `bearer` (default) | `Authorization: Bearer <key>` | OpenAI, Venice, Tavily |
+| `x-api-key` | `x-api-key: <key>` | Exa |
+| `header` | `<UPSTREAM_AUTH_HEADER>: <key>` | ElevenLabs (`UPSTREAM_AUTH_HEADER=xi-api-key`) |
+
+### Optional knobs
+
+```bash
+ROUTE_PATH=/chat/completions   # path this bridge exposes and forwards
+REQUIRE_BODY_FIELD=messages    # reject JSON bodies missing this field (optional)
+PORT=3000                      # bridge listen port
+```
+
+## The on-chain split
+
+Every successful call generates exactly one `Payment` event on the verified
+`B2BSplitter` contract at
+[`0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440`](https://polygonscan.com/address/0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440).
+You keep **98.99%**; the protocol fee is **1.00%**.
+
+```
+agent  ──payment──▶  B2BSplitter.payMatic
+                        │
+                        ├──── 98.99% ────▶  YOUR merchant wallet
+                        ├──── 1.00%  ────▶  AiFinPay treasury Safe
+                        └──── 0.01%  ────▶  ipCreator (or treasury if unset)
+
+emit Payment(payer, merchant, address(0), totalAmount,
+             merchantAmount, treasuryAmount, ipCreatorAmount, orderId)
+```
+
+You don't deploy or upgrade any contract, and you don't sign a partner
+agreement on-chain. The 1% protocol fee is structural — every `payMatic` call
+routes through the splitter, and the split is hard-coded by the Gnosis Safe
+owner. Agents can also pay in USDC/USDT via the standard x402 (ERC-3009)
+facilitator path; the same 98.99 / 1.00 / 0.01 split applies.
+
+<Tip>
+If your upstream returns `5xx`, the bridge returns `502` to the agent and does
+**not** consume their payment — the order stays replayable, so the agent can
+retry for free with the same transaction. You never get paid for an upstream
+failure, and the agent never pays for one.
+</Tip>
+
+## The services.json registry entry
+
+`new-provider.mjs` prints the entry to paste into `services.json` →
+`"services"`:
+
+```json
+{
+  "mybrand": {
+    "name": "mybrand",
+    "display_name": "MyBrand AI",
+    "url": "https://mybrand.example",
+    "logo": "mybrand",
+    "service_type": "inference",
+    "category": "inference",
+    "tagline": "...",
+    "modes": {
+      "bridge": {
+        "bridge_url": "https://bridge.aifinpay.io/mybrand",
+        "chain": "polygon",
+        "merchant_wallet": "0xYourWallet",
+        "price_usd": 0.02
+      }
+    }
+  }
+}
+```
+
+Once merged and redeployed, agents discover you through:
+
+- The on-chain `Payment` events (the canonical source)
+- The aggregated `/api/dashboard` endpoint
+- The merchant lookup at `/api/partner/:wallet`
+- Automatic selection via `/api/registry/best`
+
+## What you get for the 1% fee
+
+<CardGroup cols={2}>
+  <Card title="Pre-built SDKs" icon="cube">
+    Agents pay you through the Python (`aifinpay-agent`), Node
+    (`@aifinpay/agent`), and MCP (`@aifinpay/mcp`) surfaces — no work on your
+    side.
+  </Card>
+  <Card title="Discovery" icon="magnifying-glass">
+    Appearance on the `/api/dashboard` and `aifinpay.io` marketplace pages.
+  </Card>
+  <Card title="Trusted identity" icon="id-card">
+    Agents carry on-chain `AgentPassport` identity you can trust without
+    running your own KYC.
+  </Card>
+  <Card title="Multi-scheme facilitator" icon="arrows-split-up-and-left">
+    A canonical x402 facilitator translates between AiFinPay-native,
+    Coinbase-x402, and (future) generic schemes — agents written for any of
+    these can pay you.
+  </Card>
+</CardGroup>
+
+You do **not** pay for agent onboarding (handled in the SDK) or network fees
+(paid by the agent submitting the transaction).
+
+## Production checklist
+
+<Warning>
+The scaffolded `.env` is for development. Before driving real volume:
+</Warning>
+
+- Set `REDIS_URL` to share order/transaction state across instances (empty falls back to in-memory).
+- Use a hardware-secured wallet or a Safe for `BRIDGE_MERCHANT_WALLET` — don't reuse a CI/CD-rotated EOA.
+- Move your upstream API key to a secret manager; the `.env` file is for development only.
+- Rate-limit by Polygon address at the application layer — the bundled `express-rate-limit` is per-IP, intended as anti-spam for the 402 challenge step.
+- Monitor your `Payment` events (or the dashboard). A merchant wallet missing receipts means an agent paid but the bridge didn't deliver — that's a refund case.
+
+Questions or pilot scoping: open an issue at
+[`github.com/AiFinPay/sdk/issues`](https://github.com/AiFinPay/sdk/issues).

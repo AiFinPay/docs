@@ -1,0 +1,243 @@
+---
+title: "Python quickstart"
+description: "Build an AI agent that pays for gated APIs in Python with aifinpay-agent — generate a keypair, fund it, and call agent.pay()."
+---
+
+`aifinpay-agent` is a non-custodial x402 payment client for autonomous AI
+agents. It is the Python surface of the same payment infrastructure that
+powers the rest of AiFinPay — Stripe for AI agents. Your agent generates an
+Ed25519 keypair locally, funds it on-chain, and then `agent.pay(url)` handles
+the entire HTTP 402 handshake for you: detect the facilitator, sign, settle,
+retry.
+
+<Note>
+The keypair is generated **inside your process and never transmitted**. The
+server only ever sees a signature, never your secret key. AiFinPay is
+token-free — there is nothing to buy, stake, or trade. mSECCO usage credits
+are non-transferable and exist purely for on-chain accounting.
+</Note>
+
+## Install
+
+```bash
+pip install aifinpay-agent
+```
+
+The import package is `aifinpay`:
+
+```python
+from aifinpay import Agent, PayOptions
+```
+
+## Your first paid call
+
+<Steps>
+<Step title="Create an agent identity">
+`Agent.new()` generates a fresh Ed25519 keypair locally. Print the address to
+fund it, and persist `secret_b58` if you want to reuse this identity later.
+
+```python
+from aifinpay import Agent
+
+agent = Agent.new()
+print("Fund this address:", agent.address)
+print("Save this secret:", agent.secret_b58)  # store securely!
+```
+</Step>
+
+<Step title="Fund the wallet, then wait for it on-chain">
+Send a few cents of value to `agent.address`, then block until the funding is
+visible on-chain. `min_usd_cents` is the threshold in US cents.
+
+```python
+# Wait until the wallet has at least $0.01 worth on-chain
+agent.wait_for_funding(min_usd_cents=1)
+```
+
+This polls the public leaderboard until your address shows up with enough
+reserved, and raises `FundingTimeoutError` if it never does (default timeout
+600s).
+</Step>
+
+<Step title="Pay a gated endpoint">
+`agent.pay(url)` sends the request, and on an HTTP 402 it auto-detects the
+facilitator, builds the right auth payload, settles, and retries — returning a
+standard `requests.Response`.
+
+```python
+resp = agent.pay("https://aifinpay.io/api/stats")
+print(resp.json())
+```
+</Step>
+</Steps>
+
+## Paying any x402 endpoint
+
+`agent.pay()` works against any supported x402 facilitator, not just AiFinPay's
+own endpoints. Extra keyword arguments (`method`, `json`, `headers`, …) are
+forwarded to the underlying `requests` call.
+
+```python
+from aifinpay import Agent, PayOptions
+
+agent = Agent.from_secret_b58("3RvZm7Gw...")
+
+resp = agent.pay(
+    "https://api.example.com/v1/data",
+    method="POST",
+    json={"q": "hello"},
+    options=PayOptions(max_amount_usd=0.10),  # refuse if cost > $0.10
+)
+print(resp.json())
+```
+
+Two convenience wrappers pin the verb for you:
+
+```python
+agent.get("https://aifinpay.io/api/stats")
+agent.post("https://api.example.com/v1/data", json={"q": "hello"})
+```
+
+### `pay()` parameters
+
+| Argument | Type | Default | Purpose |
+|---|---|---|---|
+| `url` | `str` | — | Target URL. |
+| `method` | `str` | `"GET"` | HTTP verb. |
+| `max_retries` | `int` | `1` | Retries after a 402 before raising. |
+| `options` | `PayOptions` | `None` | Budget cap and facilitator overrides. |
+| `**request_kwargs` | — | — | Forwarded to `requests` (`json=`, `headers=`, …). |
+
+### Controlling cost with `PayOptions`
+
+```python
+from aifinpay import PayOptions
+
+opts = PayOptions(
+    max_amount_usd=0.10,        # refuse if the facilitator wants more
+    preferred_chain="polygon",  # hint for multi-chain facilitators
+    facilitator="auto",         # "auto" | "aifinpay" | "coinbase-x402"
+    extra_headers={"x-trace": "demo"},
+)
+```
+
+<Warning>
+If a 402 challenge demands more than `max_amount_usd`, `pay()` raises
+`PaymentTooExpensiveError` **before** anything is signed or settled — your
+funds are never spent above the cap.
+</Warning>
+
+## Loading an existing keypair
+
+Reuse a persisted identity instead of generating a new one each run:
+
+<CodeGroup>
+```python From a base58 secret
+agent = Agent.from_secret_b58("3RvZm7Gw...")
+```
+
+```python From a solana-keygen JSON file
+agent = Agent.from_keypair_file("~/agent-wallet.json")
+```
+</CodeGroup>
+
+Both accept the same keyword arguments as `Agent.new()` (e.g. `base_url`,
+`timeout`).
+
+## The AiFinPay-native Seat flow
+
+For AiFinPay's own Seat-based flow you can request an invoice directly. The SDK
+is non-custodial, so it returns the on-chain instructions and **does not submit
+the transaction** — you build and sign it with the chain SDK of your choice.
+
+```python
+invoice = agent.reserve_seat_invoice(amount_usd=1.00, asset="USDC")
+
+print(invoice.amount_usd)      # 1.0
+print(invoice.treasury_vault)  # treasury address
+print(invoice.program_id)      # on-chain program id
+print(invoice.nonce)           # one-time nonce
+print(invoice.raw)             # full server response: mints, accounts, etc.
+```
+
+`asset` accepts `"SOL"` (routes to `/api/invoice`) or an SPL asset such as
+`"USDC"` / `"USDT"` (routes to `/api/invoice-spl`).
+
+<Info>
+**How the handshake works.** On a 402 the SDK reads the `x-nonce` from the
+challenge, computes `SHA-256("AiFinPay-x402:{nonce}:{pubkey}")`, signs it with
+Ed25519, and sets three headers on the retry: `x-agent-pubkey`, `x-nonce`,
+`x-signature`. Nonces are consumed on use, so the auth is replay-resistant.
+</Info>
+
+## Errors
+
+All exceptions subclass `AiFinPayError` and are importable from `aifinpay`:
+
+| Exception | Raised when |
+|---|---|
+| `PaymentTooExpensiveError` | Cost exceeds `options.max_amount_usd`. |
+| `X402Error` | Still 402 after `max_retries`. |
+| `UnsupportedFacilitatorError` | 402 from a facilitator flavor the SDK doesn't know. |
+| `FacilitatorNotImplementedError` | Known facilitator, settlement not wired yet. |
+| `FundingTimeoutError` | `wait_for_funding()` timed out. |
+| `SeatNotFoundError` | Expected Seat not present on-chain. |
+
+```python
+from aifinpay import Agent, PayOptions, PaymentTooExpensiveError, X402Error
+
+agent = Agent.from_secret_b58("3RvZm7Gw...")
+try:
+    resp = agent.pay("https://api.example.com/v1/data",
+                     options=PayOptions(max_amount_usd=0.05))
+except PaymentTooExpensiveError:
+    print("over budget — skipped")
+except X402Error as e:
+    print("could not satisfy the 402 challenge:", e)
+```
+
+## Advanced: paying registered providers across chains
+
+For a chain-opaque surface that selects and settles a payment per call, use
+`AiFinPayAgent`. One identity derives both a Solana base58 address and a Polygon
+EVM address; `call(provider=…)` looks the provider up in the registry, settles
+the 402 on-chain, and returns the upstream response.
+
+Install the unified extras (adds the EVM and Solana signing dependencies):
+
+```bash
+pip install 'aifinpay-agent[unified]'
+```
+
+```python
+from aifinpay import AiFinPayAgent
+
+agent = AiFinPayAgent.new()
+print("Solana:", agent.solana_address)
+print("EVM:   ", agent.evm_address)
+
+# Fund the wallet, then make a paid call to a registered provider.
+resp = agent.call(
+    provider="io-net",
+    body={"model": "meta-llama/Llama-3.3-70B-Instruct",
+          "messages": [{"role": "user", "content": "Hello"}]},
+    cost=0.05,  # budget cap — refuses if the registry price is higher
+)
+print(resp.json())
+```
+
+`call()` accepts `provider`, `body`, `method` (default `"POST"`), `chain`
+(`"polygon"` | `"solana"`, defaults to the provider's preferred chain), `cost`
+(a budget cap), and `timeout`. To reuse an identity, construct it from a seed or
+an existing Solana secret:
+
+```python
+agent = AiFinPayAgent.from_seed("0x" + "00" * 32)        # one 32-byte hex seed
+agent = AiFinPayAgent.from_solana_secret("3RvZm7Gw...")  # EVM key derived from it
+```
+
+<Tip>
+Same identity, both SDKs: a seed produces byte-for-byte the same Solana and EVM
+addresses in the Python and Node SDKs, so an agent can move between runtimes
+without changing wallets.
+</Tip>

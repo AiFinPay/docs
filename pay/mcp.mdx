@@ -1,0 +1,146 @@
+---
+title: "Use AiFinPay from Claude (MCP)"
+description: "Install the @aifinpay/mcp server so Claude can pay for AI services autonomously over x402 — no payment code required."
+---
+
+`@aifinpay/mcp` is an [MCP](https://modelcontextprotocol.io) server that exposes AiFinPay's autonomous x402 payment loop as agent-callable tools. Drop it into Claude Desktop (or any MCP-aware runtime) and your agent can buy services on its own — detect an `HTTP 402`, sign, pay, and retry — without you writing a line of payment code.
+
+<Info>
+AiFinPay is payment infrastructure for AI agents — the Stripe for autonomous agents. It is **token-free**: there is nothing to buy, hold, or trade to use it. Agents pay real stablecoins per call. mSECCO are non-transferable usage credits, not a tradable asset.
+</Info>
+
+## Install
+
+```bash
+# Globally — usable as `npx @aifinpay/mcp` from any client config
+npm install -g @aifinpay/mcp
+```
+
+## Configure Claude Desktop
+
+Add the server to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "aifinpay": {
+      "command": "npx",
+      "args": ["@aifinpay/mcp"],
+      "env": {
+        "AIFINPAY_AGENT_SECRET": "<base58 secret — see below>",
+        "AIFINPAY_MAX_USD": "0.50"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. Claude can now call any of the tools below — `payable_fetch`, `agent_call`, `pay_with_split`, and the read-only marketplace directory — like any other tool.
+
+<Warning>
+Always set `AIFINPAY_MAX_USD`. It is a hard cap on any single payment and is your primary safety control when an autonomous agent is spending on its own.
+</Warning>
+
+## First run — generating an agent
+
+If `AIFINPAY_AGENT_SECRET` is not set, the server generates an **ephemeral** keypair and prints it to stderr at startup:
+
+```
+[warn] no AIFINPAY_AGENT_SECRET set — generated EPHEMERAL agent.
+  address: 9HucVaL5yinJ4MfBKCFnz5QJBGwK33bfSQKw15pSe3Ch
+  secret:  2vfeWAYfkpTNGSgDpBonzmjkckrTKa5GTnhhztY141YcSKYrqCvtojVukQAQiJbbRLgdcfEdyqHbRMsUft6Pb7nD
+  >> Save this secret to AIFINPAY_AGENT_SECRET to keep the agent across restarts.
+```
+
+Save the printed secret to `AIFINPAY_AGENT_SECRET` in your client config so the agent identity — and any funded Seat — persists across restarts.
+
+<Warning>
+Treat `AIFINPAY_AGENT_SECRET` like a private key. Never commit it or paste it into chats. Anyone with it controls the agent and its funds.
+</Warning>
+
+## Environment variables
+
+| Var | Default | Purpose |
+|---|---|---|
+| `AIFINPAY_AGENT_SECRET` | — | Base58 secret. If absent → ephemeral agent printed to stderr. |
+| `AIFINPAY_BASE_URL` | `https://aifinpay.io` | Backend URL for nonce + funding probes. |
+| `AIFINPAY_TIMEOUT_MS` | `30000` | Request timeout. |
+| `AIFINPAY_MAX_USD` | — | Hard cap per single payment. Strongly recommended. |
+
+## Tools
+
+The server exposes 16 tools: 7 for payment and agent identity, and 9 read-only marketplace directory tools.
+
+### Payment / agent
+
+| Tool | What it does |
+|---|---|
+| `payable_fetch(url, opts?)` | Fetch any URL. On `HTTP 402`, auto-detect the facilitator, sign, pay, and retry. |
+| `agent_call({provider, body})` | Pay a registered AiFinPay provider and return its response (unified call). |
+| `agent_quote(url)` | Inspect a 402 challenge without paying — quoted amount + facilitator flavor. |
+| `agent_address()` | Return the agent's address so you know where to fund it. |
+| `agent_claim_self(...)` | Publish/claim this agent on the public AiFinPay network directory. |
+| `pay_with_split(...)` | Execute a fee-on-top (B2B) split payment. |
+| `quote_split(...)` | Preview the fee-on-top split breakdown without paying. |
+
+### Marketplace directory (read-only)
+
+| Tool | What it does |
+|---|---|
+| `list_providers()` | List the AI services available through AiFinPay with per-call prices. |
+| `provider_info(name)` | Details for one provider (price, networks, service type). |
+| `provider_status()` | Which provider bridges are currently reachable. |
+| `service_coverage()` | Which categories AiFinPay covers and the providers in each. |
+| `network_stats()` | Public protocol statistics. |
+| `leaderboard()` | Public on-chain leaderboard of AiFinPay agents. |
+| `quote_cost(...)` | Preview the fee-on-top cost for a given price (no payment). |
+| `verify_passport(pubkey)` | Whether a key holds an AiFinPay AgentPassport. |
+| `agent_profile(address)` | Public profile + activity summary for an agent. |
+
+## Try it in Claude
+
+Once the server is running, drive it in natural language. Claude picks the right tools:
+
+<Steps>
+  <Step title="Fund the agent">
+    Ask Claude for `agent_address()`, then send stablecoins to that address so it has a balance to spend.
+  </Step>
+  <Step title="Browse the directory">
+    "What AI services can I pay for through AiFinPay?" → Claude calls `list_providers()` and `provider_info(name)`.
+  </Step>
+  <Step title="Preview before paying">
+    "How much would this 402 endpoint cost?" → Claude calls `agent_quote(url)` or `quote_cost(...)` — no payment is made.
+  </Step>
+  <Step title="Pay and fetch">
+    "Fetch this paid endpoint and summarize it" → Claude calls `payable_fetch(url)`, which pays and retries automatically, staying under `AIFINPAY_MAX_USD`.
+  </Step>
+</Steps>
+
+## How `payable_fetch` works
+
+1. Sends the request unauthenticated.
+2. On `402`, the underlying `@aifinpay/agent` SDK detects the facilitator flavor (AiFinPay native, Coinbase x402, …).
+3. Signs a payment payload and retries.
+4. Returns `{ status, ok, headers, body }` to the agent.
+
+The flow is identical to calling `agent.pay(url)` directly — this package just wraps it as an MCP tool surface so LLM agents can call it without writing payment code.
+
+## Programmatic use
+
+You can also embed the server in your own MCP host:
+
+```ts
+import { createServer, loadConfigFromEnv } from "@aifinpay/mcp";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
+const { server } = await createServer({
+  ...loadConfigFromEnv(),
+  agentSecretB58: "your-secret-here",
+  maxAmountUsd: 0.10,
+});
+await server.connect(new StdioServerTransport());
+```
+
+<Note>
+Works with Claude Desktop, MCP Inspector, and any MCP-aware agent runtime. The server communicates over stdio.
+</Note>

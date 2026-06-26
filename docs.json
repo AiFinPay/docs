@@ -1,0 +1,59 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "AiFinPay",
+  "description": "Payment infrastructure for autonomous AI agents — pay for services, charge for your API, over x402.",
+  "colors": {
+    "primary": "#2B78C5",
+    "light": "#83AED8",
+    "dark": "#0A0E1A"
+  },
+  "favicon": "/favicon.svg",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Pay for services",
+            "pages": ["pay/node", "pay/python", "pay/mcp", "pay/manual-flow"]
+          },
+          {
+            "group": "Charge for your API",
+            "pages": ["charge/onboarding"]
+          },
+          {
+            "group": "Reference",
+            "pages": ["reference/networks", "reference/mcp-tools"]
+          }
+        ]
+      }
+    ]
+  },
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://aifinpay.io"
+  },
+  "navbar": {
+    "links": [
+      { "label": "Main site", "href": "https://aifinpay.io" },
+      { "label": "GitHub", "href": "https://github.com/AiFinPay" }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Get the SDK",
+      "href": "https://www.npmjs.com/package/@aifinpay/agent"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/AiFinPay",
+      "x": "https://x.com/aifinpay"
+    }
+  }
+}

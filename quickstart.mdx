@@ -1,0 +1,143 @@
+---
+title: "Quickstart"
+description: "From a clean machine to your first paid API call in under a minute."
+---
+
+AiFinPay is payment infrastructure for AI agents — Stripe for autonomous
+agents. One line of code, `agent.pay(url)`, settles a real on-chain
+payment and returns the gated response. No API key, no KYC, no
+custodian. The protocol is token-free: there is nothing to buy, list, or
+hold to use it.
+
+<Info>
+  You'll need a few cents of MATIC on Polygon to fund your agent's
+  wallet. The SDK generates the wallet for you — you just send funds to
+  the address it prints.
+</Info>
+
+<Steps>
+  <Step title="Install the SDK">
+    Pick your language. Both packages are published as stable `1.0.0`.
+
+    <CodeGroup>
+    ```bash Python
+    pip install aifinpay-agent
+    ```
+
+    ```bash Node
+    npm install @aifinpay/agent
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Create an agent">
+    `Agent.new()` generates a fresh keypair and prints the funding
+    address. Persist the secret (`secret_b58` / `secretB58`) if you want
+    to reuse this agent identity later.
+
+    <CodeGroup>
+    ```python Python
+    from aifinpay import Agent
+
+    agent = Agent.new()
+    print("Fund this address with a few cents of MATIC:", agent.address)
+    print("Save this secret:", agent.secret_b58)
+    ```
+
+    ```ts Node
+    import { Agent } from "@aifinpay/agent";
+
+    const agent = Agent.new();
+    console.log("Fund this address with a few cents of MATIC:", agent.address);
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Fund the wallet">
+    Send a small amount of MATIC to the address printed above — a few
+    cents is plenty for the example call. Funds stay in your agent's own
+    wallet until a payment settles; AiFinPay never holds them.
+  </Step>
+
+  <Step title="Make a paid call">
+    `agent.pay(url)` handles the full HTTP 402 handshake for you: it
+    reads the payment challenge, signs it, settles on-chain, retries the
+    request with the proof headers, and returns the gated response.
+
+    <CodeGroup>
+    ```python Python
+    resp = agent.pay(
+        "https://bridge.aifinpay.io/io-net/chat/completions",
+        body={"model": "meta-llama/Llama-3.3-70B-Instruct",
+              "messages": [{"role": "user", "content": "Hello"}]},
+    )
+    print(resp.json()["choices"][0]["message"]["content"])
+    print("tx hash:", resp.headers.get("x-payment-receipt"))
+    ```
+
+    ```ts Node
+    const res = await agent.pay(
+      "https://bridge.aifinpay.io/io-net/chat/completions",
+      { body: { model: "meta-llama/Llama-3.3-70B-Instruct",
+                messages: [{ role: "user", content: "Hello" }] } },
+    );
+    const data = await res.json();
+    console.log(data.choices[0].message.content);
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="See the result">
+    You get back the upstream response body — in this case a model
+    completion. The `x-payment-receipt` header carries the on-chain
+    transaction hash, so every paid call is independently verifiable on
+    Polygonscan.
+  </Step>
+</Steps>
+
+## What just happened
+
+You saw one function call. Under the hood:
+
+<Steps>
+  <Step title="402 challenge">
+    The server returned **HTTP 402** with a JSON block listing the
+    chain, asset, `payTo` address, amount, and a one-time `nonce`.
+  </Step>
+  <Step title="Settle on-chain">
+    The SDK submitted one transaction on Polygon mainnet — an atomic
+    split (merchant / treasury / IP-creator) in a single tx. No
+    custodian touches the funds at any point.
+  </Step>
+  <Step title="Retry with proof">
+    The SDK retried your request with the payment proof headers, the
+    server verified on-chain, forwarded to the upstream service, and
+    returned the response.
+  </Step>
+</Steps>
+
+<Note>
+  mSECCO credits earned on paid calls are a non-transferable internal
+  accounting unit — usage credits, not a tradable asset. There is no
+  token to acquire to use AiFinPay.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Python SDK" icon="python" href="/pay/python">
+    Full `aifinpay-agent` API: agent persistence, custom payloads, and
+    fee-on-top split invoices.
+  </Card>
+  <Card title="Node / TypeScript SDK" icon="node-js" href="/pay/node">
+    Full `@aifinpay/agent` API for TypeScript and Node runtimes.
+  </Card>
+  <Card title="MCP server" icon="plug" href="/mcp">
+    Zero-code: drop `@aifinpay/mcp` into Claude Desktop, Cursor, or
+    Windsurf and let the model pay for x402-gated APIs itself.
+  </Card>
+  <Card title="Framework adapters" icon="diagram-project" href="/integrations">
+    Paste-and-run examples for LangChain, CrewAI, OpenAI Agents, AutoGPT,
+    and Flowise.
+  </Card>
+</CardGroup>

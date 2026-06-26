@@ -1,0 +1,253 @@
+---
+title: "Node / TypeScript Quickstart"
+description: "Build an AI agent that pays for APIs with @aifinpay/agent — generate a wallet, pay a URL, or let the SDK pick the best provider for a capability."
+---
+
+AiFinPay is payment infrastructure for AI agents — the Stripe for autonomous software. The Node SDK lets an agent hold its own non-custodial wallet, settle an HTTP **402** challenge on-chain, and get the gated response back in a single call. No KYC, no API key, no custodian holds your funds.
+
+<Note>
+AiFinPay is **token-free**. Agents pay in real assets — USDC, USDT, SOL, MATIC — settled on Solana and Polygon mainnet. There is no AiFinPay token to buy or hold. `mSECCO` is a non-transferable internal accounting unit, not a tradable asset.
+</Note>
+
+## Install
+
+```bash
+npm install @aifinpay/agent
+# or: pnpm add @aifinpay/agent
+# or: yarn add @aifinpay/agent
+```
+
+<Info>
+The package ships as ESM (`"type": "module"`), so the top-level `await` used in the snippets below works directly in a `.mjs` / `.ts` module.
+</Info>
+
+## Your first paid call
+
+The fastest path: generate a fresh agent, fund it, and call `agent.pay(url)`. The Ed25519 / EVM keypair is generated locally with `tweetnacl` and **never leaves your process** — the SDK only sends a one-time signature to authenticate.
+
+<Steps>
+<Step title="Generate an agent and print its address">
+```ts
+import { Agent } from "@aifinpay/agent";
+
+// Fresh keypair, generated locally. Persist `secretB58` to reuse this identity.
+const agent = Agent.new();
+console.log("Fund this address:", agent.address);
+console.log("Save this secret:", agent.secretB58); // store securely!
+```
+</Step>
+
+<Step title="Fund the address">
+Send a few cents of the appropriate asset to the printed address. You can poll until funds arrive:
+
+```ts
+// Block until the wallet holds at least $0.01 on-chain
+await agent.waitForFunding({ minUsdCents: 1 });
+```
+</Step>
+
+<Step title="Pay and get the response">
+```ts
+const res = await agent.pay(
+  "https://bridge.aifinpay.io/io-net/chat/completions",
+  {
+    body: {
+      model: "meta-llama/Llama-3.3-70B-Instruct",
+      messages: [{ role: "user", content: "Hello" }],
+    },
+  },
+);
+
+const data = await res.json();
+console.log(data.choices[0].message.content);
+```
+
+`agent.pay()` handles the whole 402 dance for you: it reads the challenge, settles the payment on-chain, retries with the proof, and returns the upstream response.
+</Step>
+</Steps>
+
+## The capability layer: `AiFinPayAgent`
+
+`agent.pay(url)` is perfect when you already know the endpoint. When you'd rather ask for a **capability** ("search this", "run this inference") and let AiFinPay route to the best live provider, use the unified `AiFinPayAgent`. It manages both a Solana and an EVM identity and settles each call atomically on-chain.
+
+```ts
+import { AiFinPayAgent } from "@aifinpay/agent";
+
+// AiFinPayAgent.new() is async — it provisions both keypairs.
+const agent = await AiFinPayAgent.new();
+
+console.log("Solana address:", agent.solanaAddress);
+console.log("EVM address:   ", agent.evmAddress);
+```
+
+<Warning>
+The unified `call()` / capability flow settles per-call payments on Polygon mainnet by default, so fund the **EVM address** (`agent.evmAddress`) with a few cents of MATIC. Use `agent.balance()` to confirm funds landed.
+</Warning>
+
+### Discover providers
+
+`discover()` browses the live provider catalog. Filter by `category` (`"search"`, `"inference"`, `"image"`, `"speech"`) and/or free-text `q`. Each entry carries live connectivity so you can rank client-side too.
+
+```ts
+const providers = await agent.discover({ category: "search", limit: 5 });
+
+for (const p of providers) {
+  console.log(p.slug, p.name, p.price_usd, p.status, `${p.latency_ms}ms`);
+  // e.g. "exa  Exa Search  0.005  live  120ms"
+}
+```
+
+Each result is a `DiscoveredProvider`: `slug`, `name`, `price_usd`, `availability` (`"available"` | `"recruiting"`), `status` (`"live"` | `"down"` | `"unknown"`), `latency_ms`, and an optional transparent `score`.
+
+### Pick the single best provider
+
+`pickProvider()` asks the gateway for the best available provider in a category, ranked by price, latency, liveness, and on-chain trust. Cap the candidate set with `maxPriceUsd`.
+
+```ts
+const best = await agent.pickProvider("inference", { maxPriceUsd: 0.05 });
+console.log("Routing to:", best.name, "@", best.price_usd, "USD/call");
+```
+
+It throws `ProviderUnknownError` when nothing payable matches.
+
+### One-line web search
+
+`webSearch()` is the highest-level call: it picks the best search provider, pays it, and returns the response. It resolves to `null` only if a budget cap is hit in `"skip"` mode (see below).
+
+```ts
+const res = await agent.webSearch("latest Solana TPS benchmarks");
+if (res) {
+  const data = await res.json();
+  console.log(data);
+}
+```
+
+The sibling capability methods follow the same shape:
+
+<CodeGroup>
+```ts webSearch
+await agent.webSearch("who founded CoinSecurities?");
+```
+
+```ts infer
+await agent.infer({
+  model: "meta-llama/Llama-3.3-70B-Instruct",
+  messages: [{ role: "user", content: "Summarize x402 in one line." }],
+});
+```
+
+```ts image
+await agent.image("a neon terminal paying an API, vaporwave");
+```
+
+```ts voice
+await agent.voice("Payment settled on-chain.");
+```
+</CodeGroup>
+
+### Call a provider by name
+
+If you already know which provider you want, skip routing and call it directly. `call()` resolves the provider, picks a chain, settles on-chain, and retries with payment proof.
+
+```ts
+const res = await agent.call({
+  provider: "io-net",
+  body: {
+    model: "meta-llama/Llama-3.3-70B-Instruct",
+    messages: [{ role: "user", content: "Hello" }],
+  },
+});
+
+if (res) {
+  const data = await res.json();
+  console.log(data.choices[0].message.content);
+}
+```
+
+`call()` accepts `{ provider, body, cost?, chain?, bridgeUrl?, method?, timeoutMs?, signal? }` and returns `Promise<Response | null>`.
+
+## Budget caps
+
+Cap per-call and daily spend at construction time, or update later with `setBudget()`. With `on_limit_exceeded: "skip"`, a call that would breach a cap resolves to `null` instead of paying — useful in loops where you'd rather drop a task than overspend.
+
+```ts
+const agent = await AiFinPayAgent.new({
+  budgetCaps: {
+    daily_usd: 5.0,
+    per_call_usd: 0.10,
+    on_limit_exceeded: "skip", // default is "throw" (BudgetCapExceededError)
+  },
+});
+
+// ...later
+agent.setBudget({ daily_usd: 20.0 });
+console.log("Spent in last 24h:", agent.getSpend24h(), "USD");
+```
+
+## Check balances across chains
+
+`balance()` returns a USD-normalised snapshot across both chains, plus rolling 24h spend and the active caps.
+
+```ts
+const snap = await agent.balance();
+console.log("Total:", snap.agent_balance_usd, "USD");
+console.log("Polygon:", snap.chains.polygon.matic, "MATIC,", snap.chains.polygon.usdc, "USDC");
+console.log("Solana: ", snap.chains.solana.sol, "SOL,", snap.chains.solana.usdc, "USDC");
+console.log("24h spend:", snap.spend_24h_usd, "USD");
+```
+
+<Note>
+The snapshot also reports `msecco_balance` per chain. mSECCO are non-transferable usage credits earned by paying agents — they are not tradable and cannot be withdrawn.
+</Note>
+
+## Loading an existing keypair
+
+To reuse an agent identity across runs, load it instead of generating a new one.
+
+<Tabs>
+<Tab title="Agent (simple)">
+```ts
+import { Agent } from "@aifinpay/agent";
+
+// From a solana-keygen JSON file (Node only)
+const a1 = await Agent.fromKeypairFile("./agent-wallet.json");
+
+// From a base58 secret string (also works in the browser)
+const a2 = Agent.fromSecretB58("3RvZm7Gw...");
+```
+</Tab>
+
+<Tab title="AiFinPayAgent (unified)">
+```ts
+import { AiFinPayAgent } from "@aifinpay/agent";
+
+// Derives the matching EVM address deterministically from the Solana secret.
+const agent = await AiFinPayAgent.fromSolanaSecret("3RvZm7Gw...");
+
+// Or derive both chains from a single 32-byte hex seed (one backup, two chains)
+const seeded = await AiFinPayAgent.fromSeed("0xabc123...");
+```
+</Tab>
+</Tabs>
+
+## How a payment settles
+
+You see one function call. Under the hood, for every paid request the SDK:
+
+1. Sends the request unauthenticated → the bridge replies with **HTTP 402** and a JSON challenge listing chain, asset, recipient, amount and `nonce`.
+2. Settles on-chain — either an Ed25519-signed Solana challenge or a Polygon `B2BSplitter.payMatic()` transaction, depending on what the server accepts. The split is atomic (merchant / treasury / IP-creator) and no custodian ever holds the funds.
+3. Retries the original request with the payment proof header (e.g. `x-tx-hash` + `x-order-id` on Polygon, or `x-solana-tx` on Solana).
+4. Returns the upstream response once the bridge has verified settlement on-chain.
+
+All transactions are public on Solana and Polygon mainnet.
+
+## Next steps
+
+<CardGroup cols={2}>
+<Card title="x402 discovery doc" href="https://api.aifinpay.io/.well-known/x402.json">
+The machine-readable discovery document agents read to find payable endpoints.
+</Card>
+<Card title="GitHub Issues" href="https://github.com/AiFinPay/sdk/issues">
+Questions, bugs, and feature requests for the SDK.
+</Card>
+</CardGroup>

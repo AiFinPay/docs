@@ -1,0 +1,84 @@
+---
+title: "AiFinPay — Payment Infrastructure for AI Agents"
+description: "Stripe for autonomous AI agents. One line of code settles a real on-chain payment over HTTP, then returns the gated response. Non-custodial, multichain, token-free."
+---
+
+**AiFinPay is payment infrastructure for autonomous AI agents.** One line of code — `agent.pay(url)` — and your agent settles a real on-chain payment on Polygon or Solana mainnet, then receives the gated response.
+
+It is the same idea Stripe brought to web checkouts, applied to machine-to-machine commerce: a drop-in rail an agent uses to pay for any API call, and a drop-in way for a provider to charge for one.
+
+<CardGroup cols={2}>
+  <Card title="Non-custodial" icon="lock">
+    Agents hold their own keys and sign their own transactions. AiFinPay never takes custody of funds.
+  </Card>
+  <Card title="Multichain" icon="link">
+    Settle on Polygon or Solana mainnet. Live in production since 2026, Polygon facilitator compatible.
+  </Card>
+  <Card title="Token-free" icon="circle-check">
+    No protocol token to buy, hold, or speculate on. Agents pay in MATIC/POL or SOL — the assets they already hold.
+  </Card>
+  <Card title="One HTTP round-trip + one tx" icon="bolt">
+    Payment rides on top of the standard x402 challenge. Sign once, retry the request, get your data.
+  </Card>
+</CardGroup>
+
+<Note>
+  mSECCO are non-transferable usage credits earned through activity — not a tradable asset and not required to make a payment.
+</Note>
+
+## What is x402?
+
+[x402](https://www.x402.org) revives the long-reserved HTTP `402 Payment Required` status code as a real protocol. Instead of returning data, a protected endpoint answers an unauthenticated request with `402` plus a small manifest describing how to pay. The client settles the payment, attaches proof, and retries — and this time receives `200` with the payload.
+
+AiFinPay implements x402 end-to-end. The agent SDK auto-detects the facilitator flavor (AiFinPay native, Coinbase x402, and others), signs an Ed25519 challenge, settles on-chain, retries the request, and returns the response — all behind a single `agent.pay(url)` call.
+
+```bash
+# Python
+pip install aifinpay-agent
+
+# Node / TypeScript
+npm install @aifinpay/agent
+
+# MCP server (Claude Desktop, Cursor, Windsurf, Continue)
+npx @aifinpay/mcp
+```
+
+## How a payment flows
+
+<Steps>
+  <Step title="Request without payment">
+    The agent calls a protected URL. The server answers `402` with a manifest and a one-time `nonce`.
+  </Step>
+  <Step title="Sign the challenge">
+    The agent signs `SHA256("AiFinPay-x402:{nonce}:{pubkey}")` with its Ed25519 key and settles the on-chain payment.
+  </Step>
+  <Step title="Retry with proof">
+    The agent retries the request with three auth headers. The server verifies and returns `200` plus the payload.
+  </Step>
+</Steps>
+
+## Pick your path
+
+<CardGroup cols={3}>
+  <Card title="Pay for services" icon="wallet" href="/pay/node">
+    Your agent needs to call paid APIs. Install the SDK and use `agent.pay(url)` to settle any x402-protected endpoint.
+  </Card>
+  <Card title="Charge for your API" icon="store" href="/charge/onboarding">
+    You run an API and want agents to pay for it. Accept AiFinPay with a single HTTP call inside your existing service — no wallet, no chain library, no KYC.
+  </Card>
+  <Card title="Reference" icon="book" href="/reference/networks">
+    Networks, live contract addresses, headers, and field names — the canonical lookup for integrators.
+  </Card>
+</CardGroup>
+
+## SDKs and tooling
+
+| Package | Install | Use it for |
+|---|---|---|
+| `aifinpay-agent` (Python) | `pip install aifinpay-agent` | `agent.pay(url)` in Python agents |
+| `@aifinpay/agent` (Node / TypeScript) | `npm install @aifinpay/agent` | `agent.pay(url)` in JS/TS agents |
+| `@aifinpay/mcp` (MCP server) | `npx @aifinpay/mcp` | Give an LLM payment tools in Claude Desktop, Cursor, Windsurf, Continue |
+
+<Tip>
+  Using an MCP client? Drop the `@aifinpay/mcp` server into your config and the model gains payment tools like `payable_fetch(url)`, `agent_address`, `agent_quote`, `pay_with_split`, and `quote_split` — letting it autonomously settle any x402-gated API.
+</Tip>

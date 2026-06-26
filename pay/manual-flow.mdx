@@ -1,0 +1,192 @@
+---
+title: "x402 by hand"
+description: "Implement the AiFinPay x402 payment flow without the SDK — the raw 402 challenge, the on-chain split payment, and the Ed25519 identity gate, step by step."
+---
+
+You don't need our SDK to pay through AiFinPay. The protocol is plain HTTP plus one on-chain transaction. This page implements the full flow by hand — for minimal-runtime agents, unsupported languages, or anyone who wants to see exactly what the SDK does.
+
+AiFinPay is token-free: there is no protocol coin to acquire or hold. You pay in assets you already have (native POL / SOL or USDC / USDT), and settlement happens directly on-chain.
+
+<Info>
+There are **two flows**, and both start with an HTTP `402`:
+
+- **Paid call** — buy a service per request, settling on-chain. Most common.
+- **Identity gate** — prove who you are with an Ed25519 signature to reach gated endpoints (live stats, protocol docs).
+</Info>
+
+<Tip>
+In production, use the SDK (`agent.pay(url)` / `agent.call({provider})`) — it handles the 402 parsing, chain selection, signing and retries shown below for you. This page is the raw protocol underneath it.
+</Tip>
+
+## Flow 1 — Paid call (pay per request, settle on-chain)
+
+Buy a service per request. You call the resource, get a `402` with everything needed to pay, settle once on-chain through the `B2BSplitter`, then resend the same request with proof.
+
+<Steps>
+  <Step title="Call the resource with no payment">
+    Send your normal request. The bridge answers `402 Payment Required` with the payment challenge.
+
+    ```http
+    POST https://bridge.aifinpay.io/<provider>/<path>
+    content-type: application/json
+
+    { "...": "your request body" }
+    ```
+  </Step>
+
+  <Step title="Read the 402 challenge">
+    The `pay_matic` block (Polygon) tells you the splitter, the exact amounts, the `function_signature` to call, and a one-time `order_id`. A `pay_solana` block is included when the provider has a Solana merchant configured.
+
+    ```json
+    {
+      "error": "Payment Required",
+      "protocol": "AiFinPay v5.3",
+      "facilitator": "aifinpay-pay-matic",
+      "pay_matic": {
+        "chain": "polygon",
+        "splitter": "0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440",
+        "merchant_wallet": "0x…",
+        "total_wei": "15000000000000000",
+        "merchant_amount_wei": "…",
+        "treasury_amount_wei": "…",
+        "ip_creator_amount_wei": "…",
+        "order_id": "venice-abc123",
+        "function_signature": "payMatic(address,address,string)",
+        "ttl_seconds": 600
+      },
+      "retry": {
+        "legacy_pay_matic": { "method": "POST", "headers": ["x-tx-hash", "x-order-id"], "same_body": true }
+      }
+    }
+    ```
+
+    <Note>
+    The same `402` also carries a standard x402 `accepts` array (ERC-3009 USDC / USDT via a facilitator) for clients that speak it. The native-POL `pay_matic` path below is the simplest to implement by hand.
+    </Note>
+  </Step>
+
+  <Step title="Pay on-chain — B2BSplitter.payMatic">
+    Send `total_wei` to the `splitter`. It splits the payment to the provider, the treasury and the IP creator atomically in one transaction. Pass the challenge's `merchant_wallet` and `order_id` verbatim, and an `ipCreator` address — use the value from the challenge if present, never the zero address.
+
+    ```ts
+    import { createWalletClient, http } from "viem";
+    import { polygon } from "viem/chains";
+
+    const abi = [{
+      type: "function", name: "payMatic", stateMutability: "payable",
+      inputs: [
+        { type: "address", name: "merchant" },
+        { type: "address", name: "ipCreator" },
+        { type: "string",  name: "orderId" },
+      ],
+      outputs: [],
+    }];
+
+    const hash = await wallet.writeContract({
+      address: pm.splitter,
+      abi,
+      functionName: "payMatic",
+      args: [pm.merchant_wallet, ipCreator, pm.order_id],
+      value: BigInt(pm.total_wei),
+      chain: polygon,
+    });
+
+    await publicClient.waitForTransactionReceipt({ hash });
+    ```
+  </Step>
+
+  <Step title="Resend with proof → 200 + result">
+    Repeat the **same** request with two headers. The bridge re-reads the on-chain `Payment` event (merchant, amount, `orderId`), confirms it matches the issued order, then forwards the upstream response.
+
+    ```http
+    POST https://bridge.aifinpay.io/<provider>/<path>
+    x-tx-hash: 0x…           # the payMatic tx hash
+    x-order-id: venice-abc123
+    content-type: application/json
+
+    { "...": "the same request body" }
+    ```
+
+    On success you get `200`, the provider's result, and an `x-payment-receipt` header. Each `order_id` is single-use and the on-chain transaction is the source of truth, so a network-level retry just resends the same two headers — you never pay twice.
+
+    <Note>
+    **Solana variant.** When the `402` carries a `pay_solana` block, submit its `b2b_pay_with_split` instruction (`program_id`, `merchant_wallet`, `treasury`, the lamport amounts, `order_id`), then resend with `x-solana-tx` + `x-order-id` instead of `x-tx-hash` + `x-order-id`.
+    </Note>
+  </Step>
+</Steps>
+
+## Flow 2 — Identity gate (prove who you are, Ed25519)
+
+Some endpoints (live stats, protocol docs) gate on agent **identity** rather than a per-call payment. You sign a one-time nonce with your Ed25519 key, and your pubkey must own a Seat PDA on Solana.
+
+<Steps>
+  <Step title="Request with no headers → 402 + a fresh nonce">
+    Call the gated endpoint without identity headers. The `402` returns a fresh `x-nonce` (60-second TTL), `x-nonce-expires`, plus the manifesto path, treasury, mint addresses, the agreement hash, and the mSECCO threshold. mSECCO are non-transferable usage credits, not a tradable asset.
+
+    ```json
+    {
+      "error": "Payment Required",
+      "protocol": "AiFinPay v5.3",
+      "manifesto": "/manifesto.json",
+      "treasury_vault": "AnbjcK3uD5KYFtb3EuUxHTyJMfC4oyLo7hF2uELfKagN",
+      "min_usd": 1,
+      "min_msecco": 100,
+      "idl_uri": "/idl.json",
+      "usdc_mint": "…",
+      "usdt_mint": "…",
+      "usdc_ata_treasury": "…",
+      "usdt_ata_treasury": "…",
+      "agreement_hash": "…",
+      "x-nonce": "…",
+      "x-nonce-expires": "2026-06-26T00:01:00.000Z"
+    }
+    ```
+  </Step>
+
+  <Step title="Reserve a Seat (one-time)">
+    Call `reserve_seat_sol` (SOL, priced via the Pyth oracle) or `reserve_seat_spl` (USDC / USDT) on the Solana program to create your Seat PDA. This is a one-time setup — once you hold a Seat, you reuse it for every gated request.
+  </Step>
+
+  <Step title="Sign the nonce">
+    The message is the **SHA-256 digest** of `AiFinPay-x402:{nonce}:{pubkey}`, signed detached with your Ed25519 key. The pubkey and signature are base58.
+
+    ```ts
+    import nacl from "tweetnacl";
+    import bs58 from "bs58";
+    import { createHash } from "node:crypto";
+
+    const message = createHash("sha256")
+      .update(`AiFinPay-x402:${nonce}:${pubkeyB58}`)
+      .digest();                                   // raw 32-byte digest
+
+    const signature = bs58.encode(nacl.sign.detached(message, secretKey));
+    ```
+  </Step>
+
+  <Step title="Resend with the identity headers → 200">
+    ```http
+    GET https://api.aifinpay.io/<gated-endpoint>
+    x-agent-pubkey: <your base58 pubkey>
+    x-nonce:        <the nonce>
+    x-signature:    <base58 signature>
+    ```
+
+    The gate verifies the signature against `SHA256("AiFinPay-x402:{nonce}:{pubkey}")`, that the nonce is still live, and that your pubkey owns a Seat PDA — then consumes the nonce and serves the response.
+
+    <Warning>
+    Missing headers return `402` with a fresh nonce. An expired or unknown nonce returns `402`. An invalid signature or a pubkey with no Seat PDA returns `403`. Nonces are single-use and consumed on success — fetch a new one per request.
+    </Warning>
+  </Step>
+</Steps>
+
+## Recap — headers at a glance
+
+| Flow | Pay with | Proof headers |
+|---|---|---|
+| Paid call · Polygon | `payMatic` / `payStable` | `x-tx-hash` · `x-order-id` |
+| Paid call · Solana | `b2b_pay_with_split` | `x-solana-tx` · `x-order-id` |
+| Identity gate | Ed25519 + Seat PDA | `x-agent-pubkey` · `x-nonce` · `x-signature` |
+
+<Card title="In production, use the SDK" icon="rocket">
+This is the raw protocol. The AiFinPay SDK does all of the above in one call — `agent.pay(url)` or `agent.call({provider})` — with retries, chain selection and signing handled for you.
+</Card>
