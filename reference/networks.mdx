@@ -1,6 +1,6 @@
 ---
 title: "Supported networks"
-description: "AiFinPay is live across 12 networks — 8 with the full smart-contract stack, plus splitter settlement on BOT Chain, XRPL EVM, NEAR and Aptos."
+description: "AiFinPay is live across 12 networks — 7 with the full smart-contract stack, plus splitter settlement on Optimism, BOT Chain, XRPL EVM, NEAR and Aptos."
 ---
 
 AiFinPay is **multichain by design** — chains are execution environments, not
@@ -10,31 +10,35 @@ products. The same SDK and the same fee-on-top model work across every network.
 <Info>
   Primary SDK settlement runs on **Polygon** (default) and **Solana**. The full
   contract stack is deployed across the chains below; per-chain SDK routing is
-  rolling out.
+  rolling out. All Cores carry the canonical manifesto hash `0x27b28e30…`.
 </Info>
 
-## Full Core — 8 chains
+## Full Core — 7 chains
 
 Core + AgentPassport + mSECCO, with Pyth-priced settlement.
 
 | Network | Assets | Explorer | Key contract |
 |---|---|---|---|
-| **Solana** | SOL · USDC · USDT | [solscan.io](https://solscan.io) | Program `5g9zWHF1…vKFx2` |
+| **Solana** | SOL · USDC · USDT | [solscan.io](https://solscan.io) | Program [`5g9zWHF1…vKFx2`](https://solscan.io/account/5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2) |
 | **Polygon** | POL · USDC · USDT | [polygonscan.com](https://polygonscan.com) | B2BSplitter [`0xE34Fc0…8440`](https://polygonscan.com/address/0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440) |
 | **Avalanche** | AVAX · USDC · USDT | [snowtrace.io](https://snowtrace.io) | Core [`0x147d8f…94cC`](https://snowtrace.io/address/0x147d8fF8c027E24303b5B99CbC8843e1D3dF94cC) |
-| **BNB Chain** | BNB · USDC · USDT | [bscscan.com](https://bscscan.com) | — |
-| **Optimism** | ETH · USDC | [optimistic.etherscan.io](https://optimistic.etherscan.io) | — |
-| **Arbitrum** | ETH · USDC | [arbiscan.io](https://arbiscan.io) | — |
-| **Base** | ETH · USDC | [basescan.org](https://basescan.org) | — |
-| **Unichain** | ETH · USDC | [uniscan.xyz](https://uniscan.xyz) | — |
+| **BNB Chain** | BNB · USDC · USDT | [bscscan.com](https://bscscan.com) | Core [`0x29e751…b542`](https://bscscan.com/address/0x29e7519C653E1b383e8Be74675666bbA51bAb542) |
+| **Arbitrum** | ETH · USDC | [arbiscan.io](https://arbiscan.io) | Core [`0x147d8f…94cC`](https://arbiscan.io/address/0x147d8fF8c027E24303b5B99CbC8843e1D3dF94cC) |
+| **Base** | ETH · USDC | [basescan.org](https://basescan.org) | Core [`0xF03B33…Eb74`](https://basescan.org/address/0xF03B3387415D557b6ab709D06E8aF0b4ABD6Eb74) |
+| **Unichain** | ETH · USDC | [uniscan.xyz](https://uniscan.xyz) | Core [`0x493dc0…6f53`](https://uniscan.xyz/address/0x493dc0e34f13b2fd50bab7156d3850f3b86c6f53) |
 
-## Splitter — 2 chains
+Each Full Core chain also deploys **AgentPassport** and **mSECCO**; Base and
+Unichain additionally have a standalone **B2BSplitter**. See the
+[manifest](https://api.aifinpay.io/manifesto.json) for the complete address set.
 
-EVM chains without a Pyth oracle; atomic split settlement via the B2BSplitter.
+## Splitter — 3 chains
 
-| Network | Assets | Explorer | Key contract |
+Atomic split settlement via the B2BSplitter (no oracle).
+
+| Network | Assets | Explorer | B2BSplitter |
 |---|---|---|---|
-| **BOT Chain** | BOT | [scan.botchain.ai](https://scan.botchain.ai) | B2BSplitter [`0x271870…b587`](https://scan.botchain.ai/address/0x271870ABb6e6756D97191eBdb27C1873911bb587) |
+| **Optimism** | ETH · USDC | [optimistic.etherscan.io](https://optimistic.etherscan.io) | [`0xee9280…a83cb`](https://optimistic.etherscan.io/address/0xee92807decaa3a02f1e165dd7efcd92ab9aa83cb) |
+| **BOT Chain** | BOT | [scan.botchain.ai](https://scan.botchain.ai) | [`0x271870…b587`](https://scan.botchain.ai/address/0x271870ABb6e6756D97191eBdb27C1873911bb587) |
 | **XRPL EVM** | XRP | [explorer.xrplevm.org](https://explorer.xrplevm.org) | — |
 
 ## Splitter MVP — 2 chains (non-EVM)
