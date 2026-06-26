@@ -1,149 +1,63 @@
 ---
-title: "Supported Networks"
-description: "Every chain AiFinPay runs on — Polygon, Solana, Avalanche, BOT Chain, Casper and Sui — with settlement contract addresses, assets, explorers, and what's pay-ready vs deployed vs testnet."
+title: "Supported networks"
+description: "AiFinPay is live across 12 networks — 8 with the full smart-contract stack, plus splitter settlement on BOT Chain, XRPL EVM, NEAR and Aptos."
 ---
 
-AiFinPay is multichain by design — chains are execution environments, not products. The same SDK and the same fee-on-top model work across every network. The only thing that changes per chain is how an agent proves it paid.
+AiFinPay is **multichain by design** — chains are execution environments, not
+products. The same SDK and the same fee-on-top model work across every network.
+**Twelve networks are live today.**
 
-AiFinPay is token-free: there is no protocol token to buy, stake, or hold. Agents pay per request in the native asset or a stablecoin, and a flat protocol fee is added on top and settled atomically.
+<Info>
+  Primary SDK settlement runs on **Polygon** (default) and **Solana**. The full
+  contract stack is deployed across the chains below; per-chain SDK routing is
+  rolling out.
+</Info>
 
-## Status legend
+## Full Core — 8 chains
 
-<CardGroup cols={3}>
-  <Card title="Pay-ready">
-    Settles through the SDK today. Call `pay()` and you are done.
-  </Card>
-  <Card title="Mainnet deployed">
-    Live contracts verified on-chain. SDK `pay()` wiring is rolling out.
-  </Card>
-  <Card title="Testnet">
-    In active development on a test network.
-  </Card>
-</CardGroup>
+Core + AgentPassport + mSECCO, with Pyth-priced settlement.
 
-## At a glance
+| Network | Assets | Explorer | Key contract |
+|---|---|---|---|
+| **Solana** | SOL · USDC · USDT | [solscan.io](https://solscan.io) | Program `5g9zWHF1…vKFx2` |
+| **Polygon** | POL · USDC · USDT | [polygonscan.com](https://polygonscan.com) | B2BSplitter [`0xE34Fc0…8440`](https://polygonscan.com/address/0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440) |
+| **Avalanche** | AVAX · USDC · USDT | [snowtrace.io](https://snowtrace.io) | Core [`0x147d8f…94cC`](https://snowtrace.io/address/0x147d8fF8c027E24303b5B99CbC8843e1D3dF94cC) |
+| **BNB Chain** | BNB · USDC · USDT | [bscscan.com](https://bscscan.com) | — |
+| **Optimism** | ETH · USDC | [optimistic.etherscan.io](https://optimistic.etherscan.io) | — |
+| **Arbitrum** | ETH · USDC | [arbiscan.io](https://arbiscan.io) | — |
+| **Base** | ETH · USDC | [basescan.org](https://basescan.org) | — |
+| **Unichain** | ETH · USDC | [uniscan.xyz](https://uniscan.xyz) | — |
 
-| Network | Status | Network ID | Assets | Explorer |
-|---|---|---|---|---|
-| Polygon | Pay-ready | Chain ID `137` | POL (native) · USDC · USDT | [polygonscan.com](https://polygonscan.com) |
-| Solana | Pay-ready | `mainnet-beta` | SOL (native) · USDC · USDT | [solscan.io](https://solscan.io) |
-| Avalanche C-Chain | Mainnet deployed | Chain ID `43114` | AVAX (native) · USDC · USDT | [snowtrace.io](https://snowtrace.io) |
-| BOT Chain | Mainnet deployed | Chain ID `677` | BOT (native) | [scan.botchain.ai](https://scan.botchain.ai) |
-| Casper | Testnet | `casper-test` | CSPR (native) | [testnet.cspr.live](https://testnet.cspr.live) |
-| Sui | Testnet | `testnet` | SUI (native) | [suiscan.xyz](https://suiscan.xyz/testnet) |
+## Splitter — 2 chains
 
----
+EVM chains without a Pyth oracle; atomic split settlement via the B2BSplitter.
 
-## Polygon
+| Network | Assets | Explorer | Key contract |
+|---|---|---|---|
+| **BOT Chain** | BOT | [scan.botchain.ai](https://scan.botchain.ai) | B2BSplitter [`0x271870…b587`](https://scan.botchain.ai/address/0x271870ABb6e6756D97191eBdb27C1873911bb587) |
+| **XRPL EVM** | XRP | [explorer.xrplevm.org](https://explorer.xrplevm.org) | — |
 
-<Info>**Pay-ready** · Chain ID `137` · Explorer: polygonscan.com · Assets: POL (native) · USDC · USDT</Info>
+## Splitter MVP — 2 chains (non-EVM)
 
-The autonomous-loop settlement primitive. Agents pay via `B2BSplitter.payMatic` / `payStable`, then prove with `x-tx-hash` + `x-order-id`.
+| Network | Assets | Explorer |
+|---|---|---|
+| **NEAR** | NEAR | [nearblocks.io](https://nearblocks.io) |
+| **Aptos** | APT | [explorer.aptoslabs.com](https://explorer.aptoslabs.com) |
 
-| Contract | Address |
-|---|---|
-| B2BSplitter (atomic 99/1 fee-on-top) | [`0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440`](https://polygonscan.com/address/0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440) |
-| USDC (native) | [`0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`](https://polygonscan.com/address/0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359) |
-| USDT (native) | [`0xc2132D05D31c914a87C6611C10748AEb04B58e8F`](https://polygonscan.com/address/0xc2132D05D31c914a87C6611C10748AEb04B58e8F) |
-
----
-
-## Solana
-
-<Info>**Pay-ready** · Network `mainnet-beta` · Explorer: solscan.io · Assets: SOL (native) · USDC · USDT</Info>
-
-Atomic 3-way split in a single instruction. Identity gate is an Ed25519 signature over a one-time nonce.
-
-| Contract | Address |
-|---|---|
-| Program (`b2b_pay_with_split`) | [`5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2`](https://solscan.io/account/5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2) |
-| USDC mint | [`EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v`](https://solscan.io/account/EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v) |
-| USDT mint | [`Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB`](https://solscan.io/account/Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB) |
-
----
-
-## Avalanche C-Chain
-
-<Info>**Mainnet deployed** · Chain ID `43114` · Explorer: snowtrace.io · Assets: AVAX (native) · USDC · USDT</Info>
-
-Full stack — Core + AgentPassport + mSECCO — verified on-chain and Pyth-priced. SDK `pay()` wiring is rolling out.
-
-| Contract | Address |
-|---|---|
-| AiFinPayCore | [`0x147d8fF8c027E24303b5B99CbC8843e1D3dF94cC`](https://snowtrace.io/address/0x147d8fF8c027E24303b5B99CbC8843e1D3dF94cC) |
-| AgentPassport | [`0x271870ABb6e6756D97191eBdb27C1873911bb587`](https://snowtrace.io/address/0x271870ABb6e6756D97191eBdb27C1873911bb587) |
-| MSECCOToken | [`0xeE92807decAa3A02F1e165dd7Efcd92ab9aA83CB`](https://snowtrace.io/address/0xeE92807decAa3A02F1e165dd7Efcd92ab9aA83CB) |
-| USDC | [`0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E`](https://snowtrace.io/address/0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E) |
-| USDT | [`0xc7198437980c041c805A1EDcbA50c1Ce5db95118`](https://snowtrace.io/address/0xc7198437980c041c805A1EDcbA50c1Ce5db95118) |
-
-<Note>mSECCO are non-transferable usage credits, not a tradable asset.</Note>
-
----
-
-## BOT Chain
-
-<Info>**Mainnet deployed** · Chain ID `677` · Explorer: scan.botchain.ai · Assets: BOT (native)</Info>
-
-Splitter-first deploy — native BOT payments via `payMatic`. Core / Passport not deployed here.
-
-| Contract | Address |
-|---|---|
-| B2BSplitter | [`0x271870ABb6e6756D97191eBdb27C1873911bb587`](https://scan.botchain.ai/address/0x271870ABb6e6756D97191eBdb27C1873911bb587) |
-
----
-
-## Casper
-
-<Info>**Testnet** · Network `casper-test` · Explorer: testnet.cspr.live · Assets: CSPR (native)</Info>
-
-AI-agent settlement layer built for the Casper Agentic Buildathon. Public RPC: `node.testnet.casper.network/rpc`.
-
-| Contract | Address |
-|---|---|
-| Settlement registry (`register_agent` / `pay_agent`) | [`hash-47df409829ddf0612617460293ba591a19b26fa0c06918878204088d3eb9b78a`](https://testnet.cspr.live/contract/47df409829ddf0612617460293ba591a19b26fa0c06918878204088d3eb9b78a) |
-
----
-
-## Sui
-
-<Info>**Testnet** · Network `testnet` · Explorer: suiscan.xyz · Assets: SUI (native)</Info>
-
-Move modules on Sui testnet.
-
-| Contract | Address |
-|---|---|
-| Package | [`0xcd05495eeb7fe057280f5c18906f90d78bb9fae0db1379a4d2e386f554d2bc98`](https://suiscan.xyz/testnet/object/0xcd05495eeb7fe057280f5c18906f90d78bb9fae0db1379a4d2e386f554d2bc98) |
-| B2BSplitter | [`0x6bf341596d0ed24784257628a6c8ca06d578d3a1558b0a2d6e3afda48d4450ae`](https://suiscan.xyz/testnet/object/0x6bf341596d0ed24784257628a6c8ca06d578d3a1558b0a2d6e3afda48d4450ae) |
-
----
+<Note>
+  Also live on **testnet**: **Casper** (Agentic Buildathon — an agent settlement
+  layer) and **Sui** (Move).
+</Note>
 
 ## Fee model
 
-**Fee-on-top, atomic split.** A flat protocol fee is added on top of the provider's price and settled in one transaction — 99% provider / 1% treasury / 0.01% creator. No token, no staking; pay per request. Treasury is multisig-owned (Gnosis Safe / Squads).
+A flat protocol fee is added on top of the provider's price and settled in one
+transaction — **99% provider / 1% treasury / 0.01% creator**. No token, no
+staking — pay per request. Treasury is multisig-owned.
 
 ## How an agent proves payment
 
-Settlement proof is per-chain. The SDK handles the right scheme automatically for the network you target.
+- **EVM chains:** the on-chain split tx → resend with `x-tx-hash` + `x-order-id`.
+- **Solana:** Ed25519 signature over a one-time nonce + `b2b_pay_with_split` → `x-solana-tx` + `x-order-id`.
 
-<CardGroup cols={3}>
-  <Card title="EVM">
-    Polygon / Avalanche / BOT: on-chain split tx → `x-tx-hash` + `x-order-id`.
-  </Card>
-  <Card title="Solana">
-    Ed25519 signature over a one-time nonce + `b2b_pay_with_split`.
-  </Card>
-  <Card title="Casper">
-    `register_agent` → `pay_agent` settlement record.
-  </Card>
-</CardGroup>
-
-## Next steps
-
-<CardGroup cols={2}>
-  <Card title="Start building" href="/developers">
-    Wire an agent up to a pay-ready chain.
-  </Card>
-  <Card title="manifest.json" href="https://api.aifinpay.io/manifesto.json">
-    Machine-readable protocol manifest.
-  </Card>
-</CardGroup>
+See [x402 by hand](/pay/manual-flow) for the full handshake.
