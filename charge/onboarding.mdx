@@ -9,6 +9,13 @@ rail. As a provider you don't change your existing API: you stand a thin
 verifies the agent's on-chain payment, and only then forwards the request to
 your upstream using **your** API key.
 
+<Info>
+Most merchants should start with the [self-serve dashboard](/charge/dashboard)
+instead — sign up, create a service, and verify signed receipts, with no
+bridge to run. This page covers the advanced bridge / marketplace-registry
+path, for providers who also want their API listed in the AiFinPay registry.
+</Info>
+
 <CardGroup cols={2}>
   <Card title="Config-only" icon="sliders">
     Front any JSON HTTP API by editing a `.env` file. No bridge code to fork

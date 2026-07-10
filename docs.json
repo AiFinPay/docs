@@ -24,7 +24,7 @@
           },
           {
             "group": "Charge for your API",
-            "pages": ["charge/onboarding"]
+            "pages": ["charge/dashboard", "charge/onboarding"]
           },
           {
             "group": "Reference",

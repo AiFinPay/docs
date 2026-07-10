@@ -1,0 +1,170 @@
+---
+title: "Self-serve dashboard"
+description: "Sign up, create a service, and start charging AI agents for your API in a few minutes — no bridge to run, no marketplace registry entry to file."
+---
+
+AiFinPay is payment infrastructure for AI agents — the "Stripe for AI
+agents" rail. The fastest way to start charging agents for your API is the
+self-serve dashboard: sign up, create a service, get a `merchant_id` and
+API secret, and verify signed payment receipts statelessly on your own
+server. No bridge to deploy, no `services.json` entry to file.
+
+<CardGroup cols={2}>
+  <Card title="Non-custodial" icon="lock">
+    You set your own payout wallet on Polygon. Settlement lands there
+    directly — AiFinPay never takes custody of your funds.
+  </Card>
+  <Card title="Stateless verification" icon="key">
+    Receipts are signed JWTs. Verify them against AiFinPay's public JWKS —
+    no shared secret required on the verification path.
+  </Card>
+</CardGroup>
+
+<Info>
+  Looking for the bridge / marketplace-registry path instead? That's for
+  providers who want their API auto-discoverable in the AiFinPay registry
+  — see [Become a provider](/charge/onboarding).
+</Info>
+
+<Steps>
+  <Step title="Create an account">
+    Go to [dash.aifinpay.io](https://dash.aifinpay.io) and sign up with an
+    email and password. You're signed in immediately — a verification
+    email is also sent, but it doesn't block you from continuing. The same
+    account manages your AI agents (if you have any) at `/me`.
+  </Step>
+
+  <Step title="Create your first service">
+    In the dashboard, create a service with:
+
+    - **A service name** — how agents and the dashboard identify it.
+    - **A payout wallet** — a public `0x…` address on **Polygon**.
+      Settlement lands here non-custodially; AiFinPay never holds your
+      funds.
+
+    On creation you receive:
+
+    | Value | Format | Notes |
+    |-------|--------|-------|
+    | `merchant_id` | `mrch_…` | Public identifier — use it in quote requests and as the JWT `audience`. |
+    | secret | `msec_…` | Your server-side API key. **Shown once.** |
+
+    <Warning>
+      The secret is shown only at creation time and is hashed server-side
+      — AiFinPay cannot show it to you again. Store it securely. If you
+      lose it, rotate it from Settings (this invalidates the old one).
+    </Warning>
+  </Step>
+
+  <Step title="Integrate the paywall in your API">
+    An agent gets a quote for the resource it wants, pays on-chain, and
+    presents a signed receipt. You verify that receipt statelessly — no
+    call back to AiFinPay needed on the request's hot path.
+
+    **1. The agent requests a quote:**
+
+    ```bash
+    curl -X POST https://api.aifinpay.io/v1/quote \
+      -H "Content-Type: application/json" \
+      -d '{
+        "merchant_id": "mrch_…",
+        "resource": "/your/path",
+        "tier": "standard"
+      }'
+    ```
+
+    **2. The agent pays on-chain and sends your API the resulting signed
+    receipt. Verify it with your merchant's JWKS keyset:**
+
+    <CodeGroup>
+    ```js Node
+    import { jwtVerify, createRemoteJWKSet } from "jose";
+
+    const JWKS = createRemoteJWKSet(
+      new URL("https://api.aifinpay.io/.well-known/jwks.json")
+    );
+
+    const { payload } = await jwtVerify(receipt, JWKS, {
+      issuer: "https://api.aifinpay.io",
+      audience: "mrch_…",
+    });
+
+    // payload.quota is what the agent has paid for on this tier —
+    // meter it down per request and return 402 once it's exhausted.
+    ```
+    </CodeGroup>
+
+    <Info>
+      Verification only needs the public JWKS — your `msec_…` secret is
+      never involved in checking a receipt. Keep the secret for
+      dashboard/API authentication only.
+    </Info>
+  </Step>
+
+  <Step title="Manage everything from the dashboard">
+    Once your service is live, the dashboard is where you run it day to
+    day:
+
+    <CardGroup cols={2}>
+      <Card title="Pricing" icon="tag">
+        Set a unit price per tier (e.g. `standard`, `premium`) — this is
+        what quotes are generated against.
+      </Card>
+      <Card title="Webhook" icon="webhook">
+        Add a settlement webhook URL. AiFinPay sends an HMAC-signed `POST`
+        on every settlement so you can react in real time instead of
+        polling.
+      </Card>
+      <Card title="Settings" icon="rotate">
+        Rotate your secret if it's ever exposed. The old secret is
+        invalidated immediately; the previous value can't be re-viewed.
+      </Card>
+      <Card title="Receipts & activity" icon="chart-line">
+        Watch receipts, usage stats, and live activity as agents pay —
+        useful for reconciling against your own metering.
+      </Card>
+    </CardGroup>
+  </Step>
+</Steps>
+
+<Note>
+  The dashboard's per-merchant management views (pricing, webhook config,
+  secret rotation, receipts) are part of the dashboard UI itself, not a
+  public API endpoint you call directly from your backend. Your backend
+  only needs `POST /v1/quote` and the JWKS endpoint above.
+</Note>
+
+## What you get
+
+<CardGroup cols={2}>
+  <Card title="No bridge to run" icon="server">
+    Skip standing up and hosting a separate x402 bridge process — the
+    quote + receipt flow talks directly to your existing API.
+  </Card>
+  <Card title="No registry entry to file" icon="list-check">
+    You don't need a `services.json` PR or a redeploy to start
+    charging — create a service in the dashboard and you're live.
+  </Card>
+  <Card title="Protocol credits, not tokens" icon="circle-check">
+    Agents may also earn mSECCO — non-transferable protocol credits —
+    on paid calls. There's nothing for you or the agent to buy, hold, or
+    trade.
+  </Card>
+  <Card title="Real-time visibility" icon="eye">
+    Receipts, stats, and live activity in one place, without building
+    your own on-chain indexer.
+  </Card>
+</CardGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Become a provider (bridge path)" icon="store" href="/charge/onboarding">
+    Want your API auto-discoverable in the AiFinPay registry too? See the
+    config-only bridge path.
+  </Card>
+  <Card title="Networks reference" icon="link" href="/reference/networks">
+    Live contract addresses and network details for the settlement side of
+    a payment.
+  </Card>
+</CardGroup>
