@@ -1,0 +1,131 @@
+---
+title: "Hosted Gateway — zero code"
+description: "Put a payment gate in front of your existing API in about five minutes, entirely from the dashboard. No SDK, no bridge to host, no code changes."
+---
+
+The hosted Gateway is the fastest way to charge AI agents for an API you
+already run. AiFinPay proxies agent traffic to your upstream and handles the
+whole payment conversation — the `HTTP 402` challenge, the on-chain
+settlement check, metering and receipts. Your API stays exactly as it is.
+
+```text
+AI agent ──(pays, AIFP-1)──▶ bridge.aifinpay.io/{your-slug}/... ──▶ your API
+                                        │
+                          policy check · metering · receipts
+```
+
+<CardGroup cols={2}>
+  <Card title="Zero code" icon="wand-magic-sparkles">
+    Configure everything in the dashboard: a slug and your upstream URL.
+    No SDK in your stack, no process to host.
+  </Card>
+  <Card title="Non-custodial" icon="lock">
+    Every batch settles on-chain straight to a wallet you own. AiFinPay
+    never holds your funds — there is no withdraw step.
+  </Card>
+</CardGroup>
+
+## What you need
+
+| Item | Why |
+|------|-----|
+| An email address | Dashboard sign-in is a magic link — no password. |
+| A `0x` EVM address you control | Where revenue settles. One address receives on all supported EVM networks. |
+| Your API's base URL | The upstream the gateway forwards paid requests to. Must be public HTTPS. |
+| (Recommended) Cloudflare or nginx in front of your API | One rule locks your origin so agents can't skip the gateway. |
+
+## Set it up
+
+<Steps>
+  <Step title="Sign in and create a service">
+    Go to [dash.aifinpay.io](https://dash.aifinpay.io), enter your email and
+    follow the magic link. Create a service: pick a name and paste your
+    payout wallet (`0x…`). That wallet is where every settlement lands —
+    AiFinPay never custodies it.
+  </Step>
+
+  <Step title="Configure the Gateway">
+    Open the **Gateway** page. Choose a slug (lowercase, e.g. `acme-search`)
+    and enter your upstream base URL (e.g. `https://api.acme.dev`). Save.
+
+    Your paid endpoint is live immediately:
+
+    ```text
+    https://bridge.aifinpay.io/acme-search/<any-path>
+    ```
+
+    Requests to it are challenged with `HTTP 402` until the agent pays;
+    paid requests are forwarded to `https://api.acme.dev/<any-path>`.
+  </Step>
+
+  <Step title="Lock your origin">
+    Right now agents could still call `api.acme.dev` directly and skip the
+    paywall. Closing that hole takes one rule.
+
+    Saving the Gateway config generated an **origin secret** (shown once —
+    store it like a password). The gateway injects it into every forwarded
+    request as a header:
+
+    ```text
+    AIFP-Proxy-Auth: <your-origin-secret>
+    ```
+
+    Reject everything that doesn't carry it:
+
+    **Cloudflare** — WAF custom rule, zero code:
+
+    ```text
+    (http.host eq "api.acme.dev" and not
+      any(http.request.headers["aifp-proxy-auth"][*] eq "<your-origin-secret>"))
+    → Block
+    ```
+
+    **nginx**:
+
+    ```nginx
+    if ($http_aifp_proxy_auth != "<your-origin-secret>") { return 403; }
+    ```
+
+    Compromised or rotated keys are handled from the dashboard — **Rotate
+    secret** keeps the previous secret valid during a short grace window, so
+    rotation causes no downtime.
+  </Step>
+
+  <Step title="Verify the lock">
+    On the Gateway page press **Verify lock**. AiFinPay calls your upstream
+    *without* the secret and expects a `401/403`. A green verdict means the
+    only way to reach your API is through the paywall.
+  </Step>
+
+  <Step title="Watch the money arrive">
+    That's the whole setup. From here the dashboard does the reporting:
+
+    - **Transactions** — every settled payment with its on-chain receipt.
+    - **Payout** — your wallet and the networks it receives on.
+    - **Traffic Heatmap / Overview** — which routes agents actually call.
+
+    A gated route with traffic but no payments yet shows as
+    *"Paywall on — no payments yet"* — that's agents receiving 402
+    challenges before the first one settles, not a misconfiguration.
+  </Step>
+</Steps>
+
+## How agents pay you
+
+Agents using the AiFinPay SDK ([Node](/pay/node), [Python](/pay/python)) or
+the [MCP server](/pay/mcp) handle the whole flow automatically — one
+`agent.pay(url)` call resolves the 402, pays on-chain from the agent's own
+wallet and retries. To be discovered by agents you don't already know, list
+your service on the **Marketplace** (dashboard → Marketplace → publish; a
+short review keeps spam out of the public catalog).
+
+## Gateway vs. SDK middleware
+
+| | Hosted Gateway (this page) | [SDK middleware](/charge/dashboard) |
+|---|---|---|
+| Code changes | None | A middleware in your backend |
+| Traffic path | Through `bridge.aifinpay.io` | Direct to your domain |
+| Receipt verification | Done by the gateway | Local, via JWKS — no network call |
+| Best for | Getting live in minutes | Full control, no proxy in the path |
+
+Both settle the same way: on-chain, straight to your wallet.
