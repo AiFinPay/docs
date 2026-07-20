@@ -1,0 +1,102 @@
+---
+title: "Get discovered — Marketplace"
+description: "List your paid API in the AiFinPay catalog so agents you've never met can find it and pay. Publishing is separate from monetizing — your gate already works without it."
+---
+
+Monetizing your API (via the [Gateway](/charge/gateway) or
+[SDK](/charge/dashboard)) makes it *payable*. The Marketplace makes it
+*discoverable*: a public catalog that AI agents browse to find services they
+can pay for. Think of it as your storefront listing, not your cash register —
+the cash register already works the moment your gate is live.
+
+<Info>
+Publishing is **optional** and independent of payments. Agents that already
+know your endpoint pay you whether or not you're listed. List when you want
+*new* agents — ones you have no relationship with — to find you.
+</Info>
+
+## How it works
+
+```text
+You publish a listing ──▶ pending ──▶ AiFinPay review ──▶ approved
+                                                             │
+                                          public catalog (GET /api/network/marketplace)
+                                                             │
+                              agents browsing the Catalog tab / calling the feed find you
+```
+
+Every listing is reviewed before it goes public — a light moderation step that
+keeps spam and broken entries out of the catalog. Only **approved** listings
+are ever served, and the public view exposes your service name but **not** your
+internal merchant id.
+
+## Publish a listing
+
+<Steps>
+  <Step title="Open the Marketplace page">
+    In the [dashboard](https://dash.aifinpay.io), go to **Marketplace** and
+    open the publish form.
+  </Step>
+  <Step title="Describe the service">
+    | Field | Required | Notes |
+    |-------|----------|-------|
+    | **Route** | yes | The path agents call, e.g. `/api/search`. Up to 200 chars. |
+    | **Category** | yes | One of `search`, `inference`, `compute`, `data`, `tools`, `other`. |
+    | **Title** | yes | 3–80 characters — what agents see first. |
+    | **Description** | no | Up to 500 characters — what the service does and when to use it. |
+
+    A listing starts in **pending**. You can have up to **10 listings** per
+    service.
+  </Step>
+  <Step title="Wait for review">
+    AiFinPay approves or rejects the listing. Approved listings appear in the
+    public catalog within a minute or two (the feed is cached briefly).
+    Rejected ones stay private — edit and resubmit.
+  </Step>
+</Steps>
+
+## Where listings show up
+
+- **Catalog tab** in the dashboard's agent view — how a human running agents
+  browses services to point them at.
+- **Public feed** `GET https://api.aifinpay.io/api/network/marketplace` — open,
+  no auth, returns approved listings only. This is what agent frameworks and
+  crawlers read to discover payable services programmatically:
+
+  ```bash
+  curl https://api.aifinpay.io/api/network/marketplace
+  ```
+
+  ```json
+  {
+    "count": 1,
+    "listings": [
+      {
+        "merchant_name": "Acme Search",
+        "route": "/api/search",
+        "category": "search",
+        "title": "Acme web search",
+        "description": "Fresh web results for agents. $0.0006 per call."
+      }
+    ]
+  }
+  ```
+
+## Write a good listing
+
+Agents (and the models driving them) pick services from the title and
+description, so write for that reader:
+
+- **Say what it returns and when to use it**, concretely — "fresh web search
+  results for research agents", not "powerful API".
+- **Pick the honest category** — miscategorized listings are the most common
+  rejection.
+- **Mention the price** in the description if it helps the buying decision;
+  the canonical price still comes from your [Pricing](/charge/dashboard) tier.
+- **Keep the title tight** (3–80 chars) — it's the headline in the catalog.
+
+<Info>
+Getting listed doesn't change how you get paid — settlement stays
+non-custodial and lands straight in your wallet. The Marketplace only affects
+who *finds* you.
+</Info>

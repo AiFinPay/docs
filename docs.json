@@ -35,7 +35,8 @@
             "pages": [
               "charge/gateway",
               "charge/dashboard",
-              "charge/onboarding"
+              "charge/onboarding",
+              "charge/marketplace"
             ]
           },
           {
