@@ -1,6 +1,6 @@
 ---
 title: "MCP Tools Reference"
-description: "The 16 tools exposed by @aifinpay/mcp — 7 payment tools and 9 read-only directory tools your agent can call."
+description: "The 7 tools exposed by @aifinpay/mcp — the agent payment + identity surface. (A read-only directory toolset is on the roadmap.)"
 ---
 
 `@aifinpay/mcp` is an [MCP](https://modelcontextprotocol.io) server that wraps
@@ -9,15 +9,17 @@ Claude Desktop, MCP Inspector, or any MCP-aware runtime and your agent can pay
 for services and browse the AiFinPay network without you writing any payment
 code.
 
-It exposes **16 tools**: 7 that move money or bind identity, and 9 read-only
-directory tools that never touch funds. AiFinPay is payment infrastructure for
-AI agents — settlement happens in SOL, USDC, USDT, or POL, and there is no
-token to buy: mSECCO are non-transferable usage credits, not a tradable asset.
+It exposes **7 tools** that move money or bind identity. AiFinPay is payment
+infrastructure for AI agents — settlement happens in SOL, USDC, USDT, or POL,
+and there is no token to buy: mSECCO are non-transferable usage credits, not a
+tradable asset.
 
 <Info>
-Read-only directory tools (`list_providers`, `network_stats`, `leaderboard`,
-etc.) require no funding and no secret. The payment tools need a funded agent —
-see [agent setup](#agent-setup) below.
+The 7 tools below need a funded agent — see [agent setup](#agent-setup) below.
+A read-only directory toolset (`list_providers`, `network_stats`,
+`leaderboard`, …) is on the roadmap and **not yet registered** in the published
+server — see [Roadmap](#roadmap-directory-tools). Until then, use the
+public REST discovery endpoints (`/api/leaderboard`, `/.well-known/x402.json`) for catalog/stats.
 </Info>
 
 ## Payment tools
@@ -42,10 +44,18 @@ chain SDK. `chain` accepts `"solana"` or `"polygon"`, and `merchant_amount` is
 a string in base units (lamports for Solana, wei for Polygon).
 </Note>
 
-## Read-only directory tools
+## Roadmap: directory tools
 
-These never move funds, never require auth, and return the public AiFinPay
-network catalog and statistics.
+<Warning>
+These read-only directory tools are **planned but not yet registered** in the
+published `@aifinpay/mcp` server — calling them will fail with "unknown tool".
+They are documented here as the intended surface. For catalog/stats today, use
+the public REST discovery endpoints (`/api/leaderboard`, `/.well-known/x402.json`). This section is
+generated from the roadmap, not from the live `tools/list`.
+</Warning>
+
+When shipped, these will never move funds, never require auth, and return the
+public AiFinPay network catalog and statistics.
 
 | Tool | Signature | What it does |
 |---|---|---|
@@ -86,7 +96,7 @@ then restart Claude Desktop:
 }
 ```
 
-Claude can now call any of the 16 tools above like any other tool.
+Claude can now call any of the 7 tools above like any other tool.
 
 ## Agent setup
 
