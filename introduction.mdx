@@ -57,6 +57,24 @@ npx @aifinpay/mcp
   </Step>
 </Steps>
 
+## Two protocols, one platform
+
+Which side of the transaction you are on decides which protocol — and which
+host and headers — you use. Mixing them up is the single most common source of
+confusion, so it is worth thirty seconds now.
+
+| | Paying for services | Charging for your API |
+|---|---|---|
+| Protocol | AiFinPay X402 (AIFP-2) | AIFP-1 |
+| You are | an agent spending money | a merchant earning it |
+| Host | `bridge.aifinpay.io/{provider}/…` | `gateway.aifinpay.io/{your-slug}/…` |
+| Headers | `x-agent-pubkey`, `x-nonce`, `x-signature`, `x-tx-hash` | `AIFP-Agent-Id`, `AIFP-Receipt` |
+| Start at | [Pay for services](/pay/node) | [Charge for your API](/charge/gateway) |
+
+Both settle on-chain straight to a wallet, and neither ever holds your funds. If
+you are doing both — paying for some APIs while charging for your own — you use
+both, independently.
+
 ## Pick your path
 
 <CardGroup cols={3}>

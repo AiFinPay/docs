@@ -9,7 +9,7 @@ whole payment conversation — the `HTTP 402` challenge, the on-chain
 settlement check, metering and receipts. Your API stays exactly as it is.
 
 ```text
-AI agent ──(pays, AIFP-1)──▶ bridge.aifinpay.io/{your-slug}/... ──▶ your API
+AI agent ──(pays, AIFP-1)──▶ gateway.aifinpay.io/{your-slug}/... ──▶ your API
                                         │
                           policy check · metering · receipts
 ```
@@ -51,7 +51,7 @@ AI agent ──(pays, AIFP-1)──▶ bridge.aifinpay.io/{your-slug}/... ──
     Your paid endpoint is live immediately:
 
     ```text
-    https://bridge.aifinpay.io/acme-search/<any-path>
+    https://gateway.aifinpay.io/acme-search/<any-path>
     ```
 
     Requests to it are challenged with `HTTP 402` until the agent pays;
@@ -60,48 +60,17 @@ AI agent ──(pays, AIFP-1)──▶ bridge.aifinpay.io/{your-slug}/... ──
 
   <Step title="Lock your origin">
     Right now agents could still call `api.acme.dev` directly and skip the
-    paywall. Closing that hole takes one rule.
-
-    Saving the Gateway config generated an **origin secret** (shown once —
-    store it like a password). The gateway injects it into every forwarded
-    request as a header:
-
-    ```text
-    AIFP-Proxy-Auth: <your-origin-secret>
-    ```
-
-    Reject everything that doesn't carry it:
-
-    **Cloudflare** — WAF custom rule, zero code:
-
-    ```text
-    (http.host eq "api.acme.dev" and not
-      any(http.request.headers["aifp-proxy-auth"][*] eq "<your-origin-secret>"))
-    → Block
-    ```
-
-    **nginx**:
-
-    ```nginx
-    if ($http_aifp_proxy_auth != "<your-origin-secret>") { return 403; }
-    ```
-
-    Compromised or rotated keys are handled from the dashboard — **Rotate
-    secret** keeps the previous secret valid during a short grace window, so
-    rotation causes no downtime.
-  </Step>
-
-  <Step title="Verify the lock">
-    On the Gateway page press **Verify lock**. AiFinPay calls your upstream
-    *without* the secret and expects a `401/403`. A green verdict means the
-    only way to reach your API is through the paywall.
+    paywall — so nothing actually gets paid. Closing that hole takes one rule
+    at your edge: see [Lock your origin](#lock-your-origin) below for the
+    Cloudflare WAF and nginx rules. Do not skip this step; without it the
+    gateway is a suggestion rather than a paywall.
   </Step>
 
   <Step title="Watch the money arrive">
     That's the whole setup. From here the dashboard does the reporting:
 
     - **Transactions** — every settled payment with its on-chain receipt.
-    - **Payout** — your wallet and the networks it receives on.
+    - **Payout** — your wallet, and every batch that settled to it.
     - **Traffic Heatmap / Overview** — which routes agents actually call.
 
     A gated route with traffic but no payments yet shows as
@@ -109,6 +78,44 @@ AI agent ──(pays, AIFP-1)──▶ bridge.aifinpay.io/{your-slug}/... ──
     challenges before the first one settles, not a misconfiguration.
   </Step>
 </Steps>
+
+## Lock your origin
+
+Without this the gateway can be bypassed: an agent that calls
+`api.acme.dev` directly gets your data for free. This rule is what makes the
+paywall real.
+
+Saving the Gateway config generated an **origin secret** (shown once — store it
+like a password). The gateway injects it into every forwarded request:
+
+```text
+AIFP-Proxy-Auth: <your-origin-secret>
+```
+
+Reject everything that does not carry it.
+
+**Cloudflare** — WAF custom rule, zero code:
+
+```text
+(http.host eq "api.acme.dev" and not
+  any(http.request.headers["aifp-proxy-auth"][*] eq "<your-origin-secret>"))
+→ Block
+```
+
+**nginx**:
+
+```nginx
+if ($http_aifp_proxy_auth != "<your-origin-secret>") { return 403; }
+```
+
+Humans are never affected — the rule only rejects requests that arrive without
+the gateway's header, and browsers reaching your site normally do not go through
+the gateway at all.
+
+Rotating is safe: **Rotate secret** in the dashboard keeps the previous secret
+valid for a short grace window, so there is no downtime. Then press **Verify
+lock** — AiFinPay calls your upstream *without* the secret and expects a
+`401`/`403`. A green verdict means the only way in is through the paywall.
 
 ## How agents pay you
 
@@ -124,7 +131,7 @@ short review keeps spam out of the public catalog).
 | | Hosted Gateway (this page) | [SDK middleware](/charge/dashboard) |
 |---|---|---|
 | Code changes | None | A middleware in your backend |
-| Traffic path | Through `bridge.aifinpay.io` | Direct to your domain |
+| Traffic path | Through `gateway.aifinpay.io` | Direct to your domain |
 | Receipt verification | Done by the gateway | Local, via JWKS — no network call |
 | Best for | Getting live in minutes | Full control, no proxy in the path |
 
