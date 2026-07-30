@@ -1,0 +1,136 @@
+---
+title: "Pricing, units and limits"
+description: "What a billing unit is, how tiers price a call, how free allowances and daily caps are counted, and what a receipt does and does not prove."
+---
+
+This page covers the AIFP-1 merchant protocol — the one behind
+[the hosted Gateway](/charge/gateway) and
+[the SDK middleware](/charge/dashboard). If you are an agent *paying* for
+services, you want [Pay for services](/pay/node) instead; that is a different
+protocol with different headers.
+
+## Units
+
+Everything is metered in **billing units**. One unit is **$0.0001**, so 10,000
+units is $1.
+
+A call's cost in units comes from its **tier**:
+
+| Tier | Units per call | Price per call |
+|---|---|---|
+| `standard` | 1 | $0.0001 |
+| `complex` | 6 | $0.0006 |
+| `premium` | 10 | $0.0010 |
+
+An unrecognised tier prices as 1 unit. There are exactly three tiers — a quote
+requesting anything else is rejected with `400`.
+
+## Where the tier comes from
+
+This surprises people, so it is worth stating plainly: **the agent names the tier
+in its quote request.** It is not read from the route you registered in the
+dashboard.
+
+```bash
+curl -X POST https://api.aifinpay.io/v1/quote \
+  -H "content-type: application/json" \
+  -d '{"merchant_id":"mrch_…","resource":"/your/path","tier":"standard"}'
+```
+
+The tier stored on a resource in the dashboard is used for **metering through the
+hosted Gateway** and for labelling in analytics and receipts — not for pricing
+this quote.
+
+`/v1/quote` takes no API key. That is deliberate: the intended caller is the
+agent, which is untrusted by definition, and a quote commits you to nothing until
+it is settled on-chain. You can call it yourself to see exactly what your agents
+see.
+
+## Per-route weight
+
+`unit_weight` on a registered resource overrides the tier for that one route —
+an integer from 1 to 100,000. Leave it empty and the tier's weight applies.
+
+It takes effect **when traffic runs through the hosted Gateway**. If you verify
+receipts yourself in your own backend, the weight you pass to your own gate is
+what counts, and editing the field in the dashboard will not change your live
+billing.
+
+## Free allowance and daily caps
+
+Two optional controls, both set per service on the dashboard's **Policies** page:
+
+- **Free units per agent** — how much a new agent can spend with you before it
+  has to pay. `0` disables the free tier.
+- **Daily unit cap per agent** — the most any single agent can spend with you in
+  a day. Blank means no cap.
+
+Two things about both that are easy to get wrong:
+
+<Warning>
+**They count units, not requests.** On a `standard` route one call spends one
+unit, but a `premium` route spends ten. A free allowance of 100 units is 100
+standard calls — or 10 premium ones.
+
+**They are one shared bucket per agent, across every route you have.** Not per
+route. An agent that exhausts its free allowance on `/search` has exhausted it
+for `/summarise` too.
+</Warning>
+
+The daily cap limits a single agent, not your total traffic. Ten agents at a
+1,000-unit daily cap can still spend 10,000 units between them.
+
+## Identifying agents
+
+Agents may send a self-declared identifier:
+
+```text
+AIFP-Agent-Id: <agent id or wallet address>
+```
+
+It is what the free allowance, the daily cap and any per-agent allow/block rules
+are keyed on. Being self-declared, it is a convenience for policy, not an
+authentication mechanism — an agent that wants a fresh free allowance can simply
+send a different one. Treat the free tier as a marketing cost, not a security
+boundary.
+
+## What a receipt proves
+
+A settled payment returns a signed receipt: an Ed25519 JWT you verify against
+`https://api.aifinpay.io/.well-known/jwks.json`. Verification is stateless — no
+shared secret, no call back to us.
+
+The receipt is pinned to:
+
+- **`aud`** — your `merchant_id`. A receipt bought for another service cannot
+  unlock yours.
+- **`resource`** — the path it was bought for.
+
+<Warning>
+It is **not** pinned to an agent. The `sub` claim is self-declared by whoever
+called `/v1/pay`, and it is never compared against `AIFP-Agent-Id`. In practice
+the receipt is a bearer token: anyone holding it can spend down the same prepaid
+quota.
+
+Meter by `receipt_id`, and treat a leaked receipt the way you would treat a
+leaked API key — what it protects is the remaining batch, not an identity.
+</Warning>
+
+## What URL to give agents
+
+Depends on which integration you chose:
+
+- **Hosted Gateway** — give them your gateway base URL:
+  `https://gateway.aifinpay.io/{your-slug}/<path>`. Every path under it is
+  proxied to your upstream. Registering resources changes pricing and analytics,
+  not routing.
+- **SDK middleware / self-hosted** — give them your own domain, exactly as you
+  would without AiFinPay. There is no AiFinPay URL in the path; we only issue the
+  quote and the receipt, and your server verifies it.
+
+## Networks
+
+Settlement is verified on **Polygon** today: POL, USDC and USDT. A quote's
+`accepted_chains` tells an agent what it may pay on, and a settlement on a chain
+we cannot verify is refused rather than accepted on trust. More networks appear
+here as their verification lands.

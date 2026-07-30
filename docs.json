@@ -42,6 +42,7 @@
           {
             "group": "Reference",
             "pages": [
+              "reference/pricing-and-limits",
               "reference/networks",
               "reference/mcp-tools"
             ]
