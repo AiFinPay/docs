@@ -25,6 +25,30 @@ A call's cost in units comes from its **tier**:
 An unrecognised tier prices as 1 unit. There are exactly three tiers — a quote
 requesting anything else is rejected with `400`.
 
+## What you keep
+
+Every settlement splits on-chain, atomically, in the same transaction that pays
+you. Nothing passes through an AiFinPay account first.
+
+| | share | on a $1.00 batch |
+|---|---|---|
+| You (merchant) | 98.99% | $0.9899 |
+| AiFinPay treasury | 1.00% | $0.0100 |
+| IP creator royalty | 0.01% | $0.0001 |
+
+The fee is charged **on top** of your price rather than deducted from it: you
+set what you want to earn per unit, and the agent pays that plus the fee. There
+is no minimum fee, no monthly cost and no withdrawal step — the funds arrive at
+your payout address in the settlement transaction itself.
+
+<Note>
+Be realistic about scale before integrating. At the standard tier a call earns
+you about **$0.0001** — a tenth of a cent. A million paid requests is roughly
+$99. If your goal is revenue, this pays off at API-scale volume. If your goal is
+to stop AI crawlers taking your content for free, it works at any volume,
+because the point is the paywall rather than the amount.
+</Note>
+
 ## Where the tier comes from
 
 This surprises people, so it is worth stating plainly: **the agent names the tier
