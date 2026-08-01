@@ -3,18 +3,40 @@ title: "Become a provider"
 description: "Charge AI agents per call by putting a config-only x402 bridge in front of your API — non-custodial, no contract to sign."
 ---
 
-AiFinPay is payment infrastructure for AI agents — the "Stripe for AI agents"
-rail. As a provider you don't change your existing API: you stand a thin
-**x402 bridge** in front of it. The bridge issues the `HTTP 402` challenge,
-verifies the agent's on-chain payment, and only then forwards the request to
-your upstream using **your** API key.
+<Warning>
+**This page is not the way to start.** It documents the partner-bridge route,
+which needs a repository you do not have access to and a registry entry only we
+can add. If you are here to charge AI agents for your own API or site, use the
+self-serve path below — you never need us, and it takes about five minutes.
+</Warning>
 
-<Info>
-Most merchants should start with the [self-serve dashboard](/charge/dashboard)
-instead — sign up, create a service, and verify signed receipts, with no
-bridge to run. This page covers the advanced bridge / marketplace-registry
-path, for providers who also want their API listed in the AiFinPay registry.
-</Info>
+## Start here instead
+
+Everything below is self-serve at [dash.aifinpay.io](https://dash.aifinpay.io) —
+no repository, no approval, no contract:
+
+1. Sign in with an email link and create a service.
+2. Give it a payout address (a standard `0x…` EVM address; settlement is on
+   Polygon today).
+3. On the **Gateway** page, pick a slug and enter your upstream URL. Your paid
+   endpoint is live immediately at `https://gateway.aifinpay.io/{your-slug}/…` —
+   that is the URL you hand to agents.
+4. Lock your origin so agents cannot bypass the paywall. **Read
+   [Hosted Gateway](/charge/gateway) before you do — the rule differs for an API
+   and for a site with human readers, and using the API rule on a website will
+   403 your readers and drop you out of search.**
+
+That is the whole thing. [Hosted Gateway](/charge/gateway) walks through it with
+no code at all; [SDK middleware](/charge/dashboard) is the alternative if you
+would rather keep traffic on your own domain and verify receipts yourself.
+
+## The partner-bridge route (requires us)
+
+The rest of this page covers standing a thin **x402 bridge** in front of an API
+and listing it in the AiFinPay provider registry. It needs a pull request to a
+private repository and a registry entry we add by hand, so it is only relevant
+if you have already spoken to us about a registry listing. It is not a
+self-service path and should not be attempted as one.
 
 <CardGroup cols={2}>
   <Card title="Config-only" icon="sliders">
