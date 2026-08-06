@@ -32,7 +32,7 @@ AI agent ──(pays, AIFP-1)──▶ gateway.aifinpay.io/{your-slug}/... ─�
 | An email address | Dashboard sign-in is a magic link — no password. |
 | A `0x` EVM address you control | Where revenue settles. One address receives on all supported EVM networks. |
 | Your API's base URL | The upstream the gateway forwards paid requests to. Must be public HTTPS. |
-| (Recommended) Cloudflare or nginx in front of your API | One rule locks your origin so agents can't skip the gateway. |
+| Cloudflare or nginx in front of your API | **Required.** Without it an agent calls your API directly, gets the answer and pays nothing — the paywall is bypassed by not using it. |
 
 ## Set it up
 
@@ -138,6 +138,13 @@ and not any(http.request.headers["aifp-proxy-auth"][*] eq "<your-origin-secret>"
 An AI crawler that pays through the gateway arrives *with* the header and is let
 through; one that does not, is not. Human readers and search indexing are
 untouched.
+
+The limit worth knowing before you rely on it: this rule only catches crawlers
+Cloudflare classifies as AI, plus the user agents you list. A crawler that is
+neither reads your site for free, and the list needs revisiting as new ones
+appear. Blocking is only deterministic on a host with no human traffic — which
+is the argument for serving paid routes from an `api.` subdomain when the
+content allows it, and using the blanket rule there.
 
 Keep any genuinely private paths — `/api/*`, `/login`, admin panels — closed by
 their own rules as before. This rule is about crawlers, not authentication.
