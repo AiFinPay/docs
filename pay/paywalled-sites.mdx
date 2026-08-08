@@ -1,0 +1,121 @@
+---
+title: "Paying a paywalled site"
+description: "Crawl a site or API behind an AiFinPay gateway: one on-chain prepayment buys a batch, and every call after that costs a header."
+---
+
+Some sites and APIs put their content behind an AiFinPay gateway rather than
+implementing a payment protocol themselves. An agent meeting one gets an HTTP
+**402** with `"protocol": "AIFP-1"`.
+
+The important thing about this shape: **you do not pay per request.** One
+on-chain settlement buys a prepaid batch of billing units, and every call the
+batch covers costs a header and nothing else. Paying per request would cost more
+in gas than the content.
+
+## One call
+
+```ts
+import { AiFinPayAgent } from "@aifinpay/agent";
+
+const agent = await AiFinPayAgent.fromSeed(process.env.AGENT_SEED!);
+
+// Handles the 402: quotes, settles on-chain, gets a receipt, retries.
+const res = await agent.fetchPaid("https://gateway.aifinpay.io/acme/articles/2026/x");
+const article = await res!.text();
+```
+
+Every later call the same batch covers sends the receipt and settles nothing:
+
+```ts
+await agent.fetchPaid("https://gateway.aifinpay.io/acme/articles/2026/y");  // no transaction
+await agent.fetchPaid("https://gateway.aifinpay.io/acme/articles/2026/z");  // no transaction
+```
+
+`fetchPaid` returns `null` when your own budget caps refuse the payment — see
+[Budget caps](/pay/node#budget-caps). Anything that is not an AIFP-1 402 comes
+back untouched, so you can point it at any URL.
+
+## Scope: the difference between usable and ruinous
+
+A receipt covers a **scope**, and the default is the path prefix rather than the
+exact URL. This matters more than anything else on this page.
+
+<Warning>
+With `scope: "exact"` a batch pays for one URL. On a content site, where an
+agent reads each page once, that means one settlement and one batch minimum per
+page — the effective price of an article becomes the batch minimum no matter
+what the site charges, and a 670,000-URL site cannot be crawled for a sensible
+amount of money.
+</Warning>
+
+| Scope | Covers | Use for |
+|---|---|---|
+| `prefix` *(default)* | the path and everything under it — `/articles/` covers `/articles/2026/x`, and **not** `/articles-internal` | crawling a section |
+| `merchant` | every path on that merchant's gateway | one agent, one site, many sections |
+| `exact` | one path | an endpoint you call repeatedly |
+
+```ts
+// Buy one batch for the whole site.
+await agent.fetchPaid(url, {}, { scope: "merchant" });
+
+// Or a specific section.
+await agent.fetchPaid(url, {}, { scope: "prefix", resource: "/articles/" });
+```
+
+Widening the scope changes **where** units may be spent, never how many a call
+costs: the gateway charges the weight of the route you actually hit, from the
+merchant's own registry. A premium route takes ten units out of a batch bought
+against a standard one.
+
+A receipt is a bearer token. A merchant-wide one is your whole prepaid balance
+in a single JWT, which is why `prefix` is the default rather than `merchant`.
+
+## What it costs
+
+| | |
+|---|---|
+| Standard action | **$0.0005** |
+| Complex action | **$0.002** |
+| Premium action | **$0.005** |
+| Minimum batch | **$0.10** — 200 standard actions |
+| Gas per settlement | ~$0.003, amortised across the batch |
+
+Omit `units` and the client buys about ten cents' worth, computed from the price
+the gateway states in its own 402 — so the batch stays the same amount of money
+if the tiers move. Set it explicitly to buy a bigger one:
+
+```ts
+await agent.fetchPaid(url, {}, { units: 20_000 });   // ~$10 at $0.0005/unit
+```
+
+The batch drains as you spend it; when it runs out the next call settles a new
+one automatically. `agent.aifp1Receipts` lists what you are currently holding.
+
+## Concurrency
+
+Workers sharing one agent are safe. Purchases are coalesced per site: if ten
+workers hit a 402 at the same moment, one buys a batch and the rest wait for it
+and spend the same one, rather than settling ten times.
+
+## What this does not do
+
+<Note>
+**Polygon only.** `/v1/pay` verifies settlement on Polygon and nowhere else, so a
+quote that does not accept `polygon` is refused rather than settled somewhere the
+receipt could never be issued.
+
+**Native POL settlement.** The deployed splitter has no ERC-20 entrypoint, so a
+quote is settled in POL even when it lists stablecoins as acceptable.
+
+**Known gateways only.** The client refuses to settle against a host that is not
+a recognised AiFinPay gateway. A 402 is the answer to a request that carried no
+credentials, so it is unauthenticated by construction — paying whoever answers is
+how an agent gets drained by a page that simply claims to be a paywall. Pass
+`gatewayOrigins` for a self-hosted gateway, and never for a host whose paywall
+you do not control.
+</Note>
+
+## Charging for your own content
+
+The other side of this page is [Charge for your API](/charge/gateway) — a
+merchant points their traffic at a gateway URL and writes no payment code at all.

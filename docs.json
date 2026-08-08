@@ -27,6 +27,7 @@
               "pay/node",
               "pay/python",
               "pay/mcp",
+              "pay/paywalled-sites",
               "pay/manual-flow"
             ]
           },
@@ -36,7 +37,8 @@
               "charge/gateway",
               "charge/dashboard",
               "charge/onboarding",
-              "charge/marketplace"
+              "charge/marketplace",
+              "charge/publish-your-agent"
             ]
           },
           {

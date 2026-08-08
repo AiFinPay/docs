@@ -6,7 +6,7 @@ description: "Build an AI agent that pays for APIs with @aifinpay/agent — gene
 AiFinPay is payment infrastructure for AI agents — the Stripe for autonomous software. The Node SDK lets an agent hold its own non-custodial wallet, settle an HTTP **402** challenge on-chain, and get the gated response back in a single call. No KYC, no API key, no custodian holds your funds.
 
 <Note>
-AiFinPay is **token-free**. Agents pay in real assets — USDC, USDT, SOL, MATIC — settled on Solana and Polygon mainnet. There is no AiFinPay token to buy or hold. `mSECCO` is a non-transferable internal accounting unit, not a tradable asset.
+AiFinPay is **token-free**. Agents pay in real assets — USDC, USDT, SOL, MATIC — settled on Solana and Polygon mainnet. There is no AiFinPay token to buy or hold. There is no internal credit to earn either: mSECCO was retired on 2026-08-06 and was never minted — crediting it cost an extra chain call on every payment.
 </Note>
 
 ## Install
@@ -197,7 +197,7 @@ console.log("24h spend:", snap.spend_24h_usd, "USD");
 ```
 
 <Note>
-The snapshot also reports `msecco_balance` per chain. mSECCO are non-transferable usage credits earned by paying agents — they are not tradable and cannot be withdrawn.
+The snapshot may still report `msecco_balance` per chain. It is always zero: mSECCO was retired on 2026-08-06, and the token was never minted. Ignore the field; it will be removed.
 </Note>
 
 ## Loading an existing keypair
