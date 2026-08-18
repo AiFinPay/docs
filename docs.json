@@ -44,6 +44,7 @@
           {
             "group": "Reference",
             "pages": [
+              "reference/provider-api",
               "reference/pricing-and-limits",
               "reference/networks",
               "reference/mcp-tools"

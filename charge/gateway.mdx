@@ -172,11 +172,11 @@ wallet and retries. To be discovered by agents you don't already know, list
 your service on the **Marketplace** (dashboard → Marketplace → publish; a
 short review keeps spam out of the public catalog).
 
-## Gateway vs. SDK middleware
+## Gateway vs. self-hosted verification
 
-| | Hosted Gateway (this page) | [SDK middleware](/charge/dashboard) |
+| | Hosted Gateway (this page) | [Self-hosted verification](/charge/dashboard) |
 |---|---|---|
-| Code changes | None | A middleware in your backend |
+| Code changes | None | Inline JWT verify in your backend (jose / pyjwt — no AiFinPay SDK) |
 | Traffic path | Through `gateway.aifinpay.io` | Direct to your domain |
 | Receipt verification | Done by the gateway | Local, via JWKS — no network call |
 | Best for | Getting live in minutes | Full control, no proxy in the path |
