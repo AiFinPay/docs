@@ -57,47 +57,59 @@ server. No bridge to deploy, no `services.json` entry to file.
   </Step>
 
   <Step title="Integrate the paywall in your API">
-    An agent gets a quote for the resource it wants, pays on-chain, and
-    presents a signed receipt. You verify that receipt statelessly — no
-    call back to AiFinPay needed on the request's hot path.
-
-    **1. The agent requests a quote:**
+    Install the merchant middleware — it answers unpaid requests with a
+    `402` payment challenge, verifies receipts statelessly against our
+    public JWKS, and meters the prepaid quota down per request. No call
+    back to AiFinPay on the hot path.
 
     ```bash
-    curl -X POST https://api.aifinpay.io/v1/quote \
-      -H "Content-Type: application/json" \
-      -d '{
-        "merchant_id": "mrch_…",
-        "resource": "/your/path",
-        "tier": "standard"
-      }'
+    npm install @aifinpay/gate
     ```
 
-    **2. The agent pays on-chain and sends your API the resulting signed
-    receipt. Verify it with your merchant's JWKS keyset:**
+    ```ts
+    import { AifpMerchant, ResourceRegistry, aifpGate } from "@aifinpay/gate";
 
-    <CodeGroup>
-    ```js Node
-    import { jwtVerify, createRemoteJWKSet } from "jose";
+    // env: AIFP_MERCHANT_ID=mrch_…  AIFP_MERCHANT_SECRET=msec_…
+    const merchant = new AifpMerchant();
+    const registry = new ResourceRegistry({ merchant });
+    await registry.start();
 
-    const JWKS = createRemoteJWKSet(
-      new URL("https://api.aifinpay.io/.well-known/jwks.json")
-    );
-
-    const { payload } = await jwtVerify(receipt, JWKS, {
-      issuer: "https://api.aifinpay.io",
-      audience: "mrch_…",
-    });
-
-    // payload.quota is what the agent has paid for on this tier —
-    // meter it down per request and return 402 once it's exhausted.
+    app.use("/api", aifpGate({ merchantId: merchant.merchantId, registry }));
     ```
-    </CodeGroup>
+
+    Routes and prices come from the registry you edit in the Paywall
+    Builder — or declare them in code with `ensureResources`. Both write
+    the same registry; pick **one** owner per site (code registration
+    replaces on every deploy). The full decision, plus a Fastify adapter:
+    [Integration paths](/integration).
+
+    <Accordion title="No-SDK path: verify the receipt JWT yourself">
+      The receipt is a plain Ed25519-signed JWT — any JWT library works,
+      which is also why the middleware has no runtime dependency on us:
+
+      ```js
+      import { jwtVerify, createRemoteJWKSet } from "jose";
+
+      const JWKS = createRemoteJWKSet(
+        new URL("https://api.aifinpay.io/.well-known/jwks.json")
+      );
+      const { payload } = await jwtVerify(receipt, JWKS, {
+        issuer: "https://api.aifinpay.io",
+        audience: "mrch_…",
+      });
+      ```
+
+      What the SDK adds on top of this snippet is the part that costs money
+      when hand-rolled: atomic post-increment metering (read-then-write
+      overspends a batch under concurrency), receipt **type** checking, scope
+      matching, and a quota counter whose TTL dies with the receipt — plus the
+      `402` challenge itself. If you build your own gate, build those four.
+    </Accordion>
 
     <Info>
       Verification only needs the public JWKS — your `msec_…` secret is
-      never involved in checking a receipt. Keep the secret for
-      dashboard/API authentication only.
+      never involved in checking a receipt. The secret is the *management*
+      credential (routes, prices, payout wallet); treat it accordingly.
     </Info>
   </Step>
 

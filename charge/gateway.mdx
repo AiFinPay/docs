@@ -97,6 +97,15 @@ this wrong is the one mistake here that takes a site offline.
 
 ### If the origin is an API
 
+<Note>
+Already have your own API keys or sessions for developers and paying
+customers? Keep them — the lock composes: allow requests that carry **your**
+auth, allow requests that carry `AIFP-Proxy-Auth`, refuse the rest. Your
+existing users never touch the gateway; it is an additional door for agents
+you have never issued a key to. The blanket rule below is for an origin with
+no auth of its own.
+</Note>
+
 Nothing but agents calls it, so reject everything without the header.
 
 **Cloudflare** — WAF custom rule, zero code:
@@ -163,6 +172,37 @@ valid for a short grace window, so there is no downtime. Then press **Verify
 lock** — AiFinPay calls your upstream *without* the secret and expects a
 `401`/`403`. A green verdict means the only way in is through the paywall.
 
+## What your server receives
+
+The gateway is a straight proxy, with three deliberate exceptions.
+
+**Methods & body.** Every HTTP method is forwarded — GET, POST, PUT, PATCH,
+DELETE. Request bodies are forwarded for everything except GET/HEAD.
+(Currently JSON bodies; raw binary uploads are not proxied yet — put file
+endpoints behind the middleware path if you need them today.)
+
+**Headers in.** The agent's headers pass through unchanged, minus standard
+hop-by-hop headers and AiFinPay's own control headers. Two are **added**, and
+neither can be forged from outside — any inbound copy is stripped before the
+real value is injected:
+
+```text
+AIFP-Proxy-Auth: <your origin secret>   # proof the call came through the paid door
+AIFP-Agent-Id:   <agent key|anonymous>  # who paid — attribution for your logs
+```
+
+**Headers out.** Your response returns to the agent with quota bookkeeping
+added (`AIFP-Quota-Remaining`) plus a signed per-action billing receipt. You
+may optionally answer with an `AIFP-Billing` header (JSON: `action`,
+`category`, `execution_time_ms`) — it is folded into that billing receipt so
+the agent's statement names *your* action names, not just paths.
+
+**Failure.** Upstream timeout is 30 s; an unreachable upstream answers the
+agent `502`. Today the quota unit for that attempt is still consumed —
+metering happens before the proxy call, and refund-on-failure is on the
+roadmap rather than in the code. Keep your upstream healthy; a flapping
+origin spends your agents' batches on 502s.
+
 ## How agents pay you
 
 Agents using the AiFinPay SDK ([Node](/pay/node), [Python](/pay/python)) or
@@ -174,9 +214,9 @@ short review keeps spam out of the public catalog).
 
 ## Gateway vs. self-hosted verification
 
-| | Hosted Gateway (this page) | [Self-hosted verification](/charge/dashboard) |
+| | Hosted Gateway (this page) | [Self-hosted middleware](/integration) |
 |---|---|---|
-| Code changes | None | Inline JWT verify in your backend (jose / pyjwt — no AiFinPay SDK) |
+| Code changes | None | ~5 lines of [`@aifinpay/gate`](https://www.npmjs.com/package/@aifinpay/gate) |
 | Traffic path | Through `gateway.aifinpay.io` | Direct to your domain |
 | Receipt verification | Done by the gateway | Local, via JWKS — no network call |
 | Best for | Getting live in minutes | Full control, no proxy in the path |

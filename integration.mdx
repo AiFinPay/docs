@@ -1,0 +1,204 @@
+---
+title: "Integration paths"
+description: "The one decision that shapes your setup: run our middleware in your code, or point agents at the hosted gateway. Both settle on-chain straight to your wallet."
+---
+
+Charging AI agents for your API takes three steps, and one decision.
+
+<Steps>
+  <Step title="Create your account and first site">
+    Sign in at [dash.aifinpay.io](https://dash.aifinpay.io) and create a
+    site: a name and the wallet its settlements pay out to. You get a
+    `mrch_…` id and a one-time `msec_…` secret — **the secret is shown
+    once**; store it like a password. Each site has its own id, secret,
+    endpoints and payout wallet.
+  </Step>
+  <Step title="Pick your integration path">
+    The decision below. It is per-site — one account can run a
+    middleware-gated API and a gateway-fronted one side by side.
+  </Step>
+  <Step title="Register what's for sale">
+    Your paid routes and their prices. From the dashboard's Paywall
+    Builder, or from code — both write the same registry, and everything
+    registered from code appears in the panel.
+  </Step>
+</Steps>
+
+## The decision
+
+| | **Path A — middleware in your code** | **Path B — hosted gateway** |
+|---|---|---|
+| Code on your side | ~5 lines of [`@aifinpay/gate`](https://www.npmjs.com/package/@aifinpay/gate) | none |
+| Agent traffic | hits **your** domain directly | flows through `gateway.aifinpay.io/{slug}` |
+| Routes & prices live in | code **or** the panel (pick one owner) | the panel |
+| Bypass protection | not needed — the gate *is* your API | one WAF rule on the `AIFP-Proxy-Auth` header |
+| Runtime dependency on AiFinPay | none — receipts verify locally against our JWKS | the proxy path |
+| Best for | teams with a developer | no-code / getting live in minutes |
+
+Either way the money path is identical and non-custodial: the agent pays
+on-chain **from its own wallet to yours** through the settlement contract, and
+what your side checks is a signed receipt. Your server never holds funds.
+
+<Note>
+There is no sandbox yet: the first payment is real money on Polygon mainnet.
+The minimum batch is $0.10, so trying the full flow costs cents — but say so
+to your finance person before they see an on-chain transaction.
+</Note>
+
+## Path A — middleware in your code
+
+```bash
+npm install @aifinpay/gate
+```
+
+The package has two halves with different credentials, on purpose:
+
+- **`aifpGate`** — the enforcement middleware. Needs only our *public* JWKS;
+  it cannot write anything.
+- **`AifpMerchant`** — the management client. Holds your `msec_…` secret and
+  can register routes and prices.
+
+What the gate does per request: no receipt → answer `HTTP 402` with
+machine-readable payment instructions; valid receipt → verify the Ed25519
+signature locally, meter the prepaid quota down, let the request through.
+There is no call to AiFinPay on the hot path — our availability never becomes
+your latency.
+
+### Who owns the route list — decide once
+
+Both surfaces write **one registry**. But registration from code
+(`ensureResources`) *replaces* on every deploy — deliberately, so a deploy
+script converges instead of accumulating. Which means:
+
+<Warning>
+**Pick one owner per site.** If routes are declared in code, edit prices in
+code — a panel edit lives only until the next deploy. If the panel owns the
+routes, never call `ensureResources` for that site.
+</Warning>
+
+### Code-owned routes (recommended for developers)
+
+Routes are code — they change in pull requests, and prices deploy with them.
+
+```ts
+import express from "express";
+import { AifpMerchant, ResourceRegistry, aifpGate } from "@aifinpay/gate";
+
+// env: AIFP_MERCHANT_ID=mrch_…  AIFP_MERCHANT_SECRET=msec_…
+const merchant = new AifpMerchant();
+
+// Boot-time declaration. Idempotent — safe to run on every deploy.
+await merchant.ensureResources([
+  { route_pattern: "/api/search",   type: "api", tier: "standard" }, // $0.0005/call
+  { route_pattern: "/api/report/*", type: "api", tier: "premium"  }, // $0.0050/call
+]);
+
+const registry = new ResourceRegistry({ merchant });
+await registry.start(); // fail fast rather than serve with an empty registry
+
+const app = express();
+app.use("/api", aifpGate({ merchantId: merchant.merchantId, registry }));
+app.get("/api/search", (req, res) => res.json({ results: [] }));
+app.listen(3000);
+```
+
+### Panel-owned routes
+
+No `ensureResources` anywhere. Draw routes and prices in the dashboard's
+Paywall Builder; the gate polls the registry (~60s cache) and picks changes up
+without a redeploy.
+
+```ts
+const merchant = new AifpMerchant();
+const registry = new ResourceRegistry({ merchant });
+await registry.start();
+app.use("/api", aifpGate({ merchantId: merchant.merchantId, registry }));
+```
+
+### Fastify (or any framework)
+
+The core is framework-agnostic — an adapter is ~15 lines:
+
+```ts
+import Fastify from "fastify";
+import { AifpMerchant, ResourceRegistry, createGate } from "@aifinpay/gate";
+
+const merchant = new AifpMerchant();
+const registry = new ResourceRegistry({ merchant });
+await registry.start();
+const gate = createGate({ merchantId: merchant.merchantId, registry });
+
+const app = Fastify();
+app.addHook("onRequest", async (req, reply) => {
+  if (!req.url.startsWith("/api/")) return;
+  const result = await gate({
+    path: req.url.split("?")[0],
+    header: (n) => req.headers[n.toLowerCase()] as string | undefined,
+  });
+  for (const [k, v] of Object.entries(result.headers)) reply.header(k, v);
+  if (!result.ok) return reply.code(result.status).send(result.body);
+});
+```
+
+### What an unpaid agent sees
+
+```json
+HTTP 402
+{
+  "error": "AIFP-402",
+  "merchant_id": "mrch_…",
+  "unit_price_usd": "0.0005",
+  "how_to_pay": [
+    "POST https://api.aifinpay.io/v1/quote {…}",
+    "settle the quoted batch on-chain from your own wallet",
+    "POST https://api.aifinpay.io/v1/pay {quote_id, chain, asset, tx_ref} -> quota receipt",
+    "retry this request with header: AIFP-Receipt: <receipt JWT>"
+  ]
+}
+```
+
+Agents on the AiFinPay SDK ([Node](/pay/node), [Python](/pay/python),
+[MCP](/pay/mcp)) resolve that whole conversation from one `agent.pay(url)`
+call.
+
+## Path B — hosted gateway, zero code
+
+Configure a slug and your upstream URL in the dashboard; agents call
+`gateway.aifinpay.io/{slug}/…` and we run the payment conversation, then
+forward paid requests to you.
+
+The one thing you must do: **lock your origin**. Every forwarded request
+carries a header only the gateway knows —
+
+```text
+AIFP-Proxy-Auth: <your-origin-secret>
+```
+
+— so one WAF rule closes the free side door. The rule is not "only the
+gateway may enter" and it is not "block the agents" — it is **no more free
+anonymous access**. It composes with whatever auth you already have:
+
+```text
+allow  if request carries YOUR api key / session   (your devs & customers, unchanged)
+allow  if request carries AIFP-Proxy-Auth           (paid agent traffic via the gateway)
+else → 402 pointing at your gateway URL             (better than a bare 403 —
+                                                     an agent at the wrong door
+                                                     learns where the right one is)
+```
+
+Your own developers and existing paying customers keep calling the origin
+directly with their keys; the gateway is an *additional* door for agents you
+have never met. No existing auth at all? Either route your own calls through
+the gateway too, or serve agents from a dedicated host (`paid-api.…`) locked
+hard, and leave the old host as it was. Staging stays behind VPN/IP rules as
+always — the lock belongs on the production host only.
+
+Full setup, WAF/nginx rules for both API-only and human-traffic origins, and
+secret rotation: [Hosted Gateway](/charge/gateway).
+
+## If you registered by API and the panel looks empty
+
+A site created with `POST /v1/merchants` (rather than in the dashboard)
+belongs to no account yet, so it does not appear in the panel. Sign in and
+use **Sites → Add existing** with the site's id and `msec_…` secret to adopt
+it — everything it has registered appears immediately.
