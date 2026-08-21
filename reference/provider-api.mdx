@@ -1,10 +1,15 @@
 ---
 title: "Provider API reference"
-description: "The HTTP endpoints a merchant uses to monetize an API — register, quote, settle, verify receipts, and track revenue. There is no merchant SDK; the provider side is plain HTTP plus inline receipt verification."
+description: "The HTTP endpoints a merchant uses to monetize an API — register, quote, settle, verify receipts, and track revenue. The merchant middleware (@aifinpay/gate) wraps these; everything here also works as plain HTTP."
 ---
 
 <Note>
-**There is no merchant SDK to install.** The provider side of AIFP-1 is a plain HTTP
+**The provider side is plain HTTP — and there is a middleware that wraps it.**
+[`@aifinpay/gate`](https://www.npmjs.com/package/@aifinpay/gate) covers the
+enforcement and registration flows below in a few lines (see
+[Integration paths](/integration)); this page is the raw surface underneath
+it, for other languages and for anyone who prefers no dependency. The
+provider side of AIFP-1 is a plain HTTP
 API plus **inline receipt verification** — you verify the Ed25519 receipt JWT against
 [`/.well-known/jwks.json`](#verify) with a standard JWT library (`jose` in Node,
 `pyjwt` in Python), or you front your API with the [hosted Gateway](/charge/gateway)
