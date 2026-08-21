@@ -1,0 +1,145 @@
+---
+title: "Provider API reference"
+description: "The HTTP endpoints a merchant uses to monetize an API — register, quote, settle, verify receipts, and track revenue. The merchant middleware (@aifinpay/gate) wraps these; everything here also works as plain HTTP."
+---
+
+<Note>
+**The provider side is plain HTTP — and there is a middleware that wraps it.**
+[`@aifinpay/gate`](https://www.npmjs.com/package/@aifinpay/gate) covers the
+enforcement and registration flows below in a few lines (see
+[Integration paths](/integration)); this page is the raw surface underneath
+it, for other languages and for anyone who prefers no dependency. The
+provider side of AIFP-1 is a plain HTTP
+API plus **inline receipt verification** — you verify the Ed25519 receipt JWT against
+[`/.well-known/jwks.json`](#verify) with a standard JWT library (`jose` in Node,
+`pyjwt` in Python), or you front your API with the [hosted Gateway](/charge/gateway)
+and write no verification code at all. The only shipped SDK, `@aifinpay/agent`, is for
+the *paying* (agent) side.
+</Note>
+
+Base URL: `https://api.aifinpay.io`. All bodies are JSON. Settlement is on **Polygon**
+today (POL / USDC / USDT); your payout wallet is a Polygon `0x…` address.
+
+## How the pieces fit
+
+1. **Register** once → you get a `merchant_id` and a one-time `merchant_secret`.
+2. An agent **quotes** a batch (`POST /v1/quote`) and **pays** on-chain, then calls
+   `POST /v1/pay` to get a signed **receipt**.
+3. Your endpoint (or the gateway) **verifies** that receipt against the JWKS and meters
+   the paid quota down.
+4. You **track** revenue via the merchant feeds or a `receipt.settled` webhook.
+
+Fee model (live): the ~1% protocol fee is charged **on top** of your price — you receive
+your full quoted amount, the calling agent pays the surcharge. As a split of the
+grossed-up total that is **98.99% merchant / 1.00% treasury / 0.01% IP-creator**. See
+[Pricing, units and limits](/reference/pricing-and-limits).
+
+## Register &amp; manage
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `POST` | `/v1/merchants` | none (rate-limited 10/hr/IP) | Self-register. Body: `name`, `pay_to` (e.g. `{"polygon":"0x…"}`), optional `unit_prices`, `webhook_url`. Returns `merchant_id` + `merchant_secret` **(shown once)**. |
+| `GET` | `/v1/merchants/:id` | none | Public merchant record (no secret material). |
+| `PATCH` | `/v1/merchants/:id` | `AIFP-Merchant-Secret` header | Update `name` / `pay_to` / `unit_prices`. |
+
+```bash
+curl -X POST https://api.aifinpay.io/v1/merchants \
+  -H 'content-type: application/json' \
+  -d '{"name":"Acme API","pay_to":{"polygon":"0xYourPayoutWallet"}}'
+# → { "merchant_id":"mrch_…", "merchant_secret":"msec_…" (store it), "next_steps":[…] }
+```
+
+<Note>
+Merchants created here are **anonymous** (secret-authed). To see a merchant in the
+visual dashboard, create it while signed in (the `POST /api/me/merchants` session flow
+behind the dashboard) — an anonymously-registered merchant **cannot be adopted into a
+dashboard account later**.
+</Note>
+
+## Quote &amp; pay
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `POST` | `/v1/quote` | none | Price a batch into a binding quote. Body: `merchant_id`, `resource`, `tier` (`standard`/`complex`/`premium`), and `requests` **or** `units`. Returns `quote_id`, `amount`, `accepted_assets`, `accepted_chains`, `pay_to`, `unit_quota`, `nonce`, `expires_at`, and a `settlement` breakdown. |
+| `POST` | `/v1/pay` | none — requires `Idempotency-Key` header | After the agent's on-chain settlement, verify it and mint the receipt. Body: `quote_id`, `chain`, `tx_ref`, optional `asset`, `agent_id`. Returns `receipt` (signed JWT), `receipt_id`, `status:"settled"`, `quota`/`unit_quota`, `expires_at`. |
+| `GET` | `/v1/receipt/:id` | none | Receipt status/metadata (the JWT itself is stripped). |
+| `GET` | `/v1/payments/:id` | none | Normalized payment object (`payment_id == receipt_id`): `status`, `network`, `asset`, `amount_usd`, `tx_ref`. |
+
+## Verify
+
+The receipt is an **Ed25519 (EdDSA) JWT** whose `aud` is your `merchant_id` and whose
+`unit_quota` is how many requests it pays for. Verify it **locally** — no round-trip.
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `GET` | `/.well-known/jwks.json` | none | Issuer public keys. Cache them; a rotated signing key is picked up automatically. |
+
+<CodeGroup>
+```js Node (jose)
+import { jwtVerify, createRemoteJWKSet } from "jose";
+
+const JWKS = createRemoteJWKSet(new URL("https://api.aifinpay.io/.well-known/jwks.json"));
+
+export async function requirePaid(req, res, next) {
+  const token = req.header("AIFP-Receipt");
+  if (!token) return res.status(402).json({ error: "AIFP-402", quote_url: "https://api.aifinpay.io/v1/quote" });
+  try {
+    const { payload } = await jwtVerify(token, JWKS, {
+      issuer: "https://api.aifinpay.io",
+      audience: process.env.AIFINPAY_MERCHANT_ID, // "mrch_…"
+    });
+    req.aifp = payload;            // meter payload.unit_quota down in your store
+    next();
+  } catch {
+    return res.status(402).json({ error: "AIFP-402" });
+  }
+}
+```
+
+```python Python (pyjwt)
+import jwt
+from jwt import PyJWKClient
+
+_jwks = PyJWKClient("https://api.aifinpay.io/.well-known/jwks.json")
+MERCHANT_ID = "mrch_…"
+
+def verify_receipt(token: str) -> dict:
+    key = _jwks.get_signing_key_from_jwt(token).key
+    return jwt.decode(token, key, algorithms=["EdDSA"],
+                      audience=MERCHANT_ID, issuer="https://api.aifinpay.io")
+    # raises on bad signature / wrong audience / expiry; then meter unit_quota
+```
+</CodeGroup>
+
+<Warning>
+Keep the `unit_quota` meter **server-side**. A receipt is valid until it expires; without
+your own per-receipt counter, a caller could replay it past the quota it paid for.
+</Warning>
+
+## Track revenue
+
+Two secret-authed feeds plus a webhook. (The dashboard exposes the same data under
+`/api/me/merchants/:id/…` for a signed-in owner.)
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `GET` | `/v1/merchants/:id/receipts` | `AIFP-Merchant-Secret` | Settlement feed (up to 200). |
+| `GET` | `/v1/merchants/:id/activity` | `AIFP-Merchant-Secret` | Most recent N settlements (`?limit=`, 1–50). |
+| `GET` | `/v1/merchants/:id/stats` | `AIFP-Merchant-Secret` | Revenue 7/30d, batch count, top resource/agents. |
+| `PUT` | `/v1/merchants/:id/webhook` | `AIFP-Merchant-Secret` | Set/replace the `receipt.settled` webhook (body `{ "url": … }`; `null` clears it). |
+
+Webhook deliveries are signed `x-aifinpay-signature: t=<ts>,v1=<hmac-sha256>`.
+
+## Hosted Gateway (no verification code)
+
+Prefer no code? Configure the gateway instead of verifying receipts yourself — you point a
+slug at your upstream and lock your origin. See [Hosted Gateway](/charge/gateway). The
+gateway config endpoints (`/api/me/merchants/:id/gateway`, `…/rotate-origin-secret`,
+`…/verify-lock`) are session-authed and driven from the dashboard.
+
+## Not live yet
+
+- **Settlement is Polygon-only.** Solana and other chains are not on the merchant path.
+- **No merchant SDK** is planned — verification stays a few lines on a standard JWT library.
+- A future upgrade moves the fee model from fee-on-top (98.99/1/0.01) to fee-from-gross
+  (99/1/0); until it ships, the live model is fee-on-top as described above.

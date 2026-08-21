@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "AiFinPay",
-  "description": "Financial and payment infrastructure for autonomous AI agents — AI agent payments, x402, MCP monetization, API monetization and AI traffic monetization.",
+  "description": "Financial and payment infrastructure for autonomous AI agents \u2014 AI agent payments, x402, MCP monetization, API monetization and AI traffic monetization.",
   "colors": {
     "primary": "#2B78C5",
     "light": "#83AED8",
@@ -34,6 +34,7 @@
           {
             "group": "Charge for your API",
             "pages": [
+              "integration",
               "charge/gateway",
               "charge/dashboard",
               "charge/onboarding",
