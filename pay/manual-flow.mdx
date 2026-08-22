@@ -63,6 +63,10 @@ Buy a service per request. You call the resource, get a `402` with everything ne
     <Note>
     The same `402` also carries a standard x402 `accepts` array (ERC-3009 USDC / USDT via a facilitator) for clients that speak it. The native-POL `pay_matic` path below is the simplest to implement by hand.
     </Note>
+
+    <Note>
+    In the `protocol` field, **AIFP-1** is the payment protocol version and **v5.3** is the revision of the AiFinPayCore contract on Polygon — two independent version lines. SDKs should key behavior off `AIFP-1`, never off the contract revision.
+    </Note>
   </Step>
 
   <Step title="Pay on-chain — B2BSplitter.payMatic">
