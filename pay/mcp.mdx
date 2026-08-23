@@ -80,8 +80,8 @@ The server exposes 16 tools: 7 for payment and agent identity, and 9 read-only m
 | `agent_quote(url)` | Inspect a 402 challenge without paying — quoted amount + facilitator flavor. |
 | `agent_address()` | Return the agent's address so you know where to fund it. |
 | `agent_claim_self(...)` | Publish/claim this agent on the public AiFinPay network directory. |
-| `pay_with_split(...)` | Execute a fee-on-top (B2B) split payment. |
-| `quote_split(...)` | Preview the fee-on-top split breakdown without paying. |
+| `pay_with_split(...)` | Retired compatibility tool; returns `legacy_split_route_retired` and moves no funds. |
+| `quote_split(...)` | Retired compatibility tool; use a canonical AIFP-1 quote. |
 
 ### Marketplace directory (read-only)
 
@@ -93,7 +93,7 @@ The server exposes 16 tools: 7 for payment and agent identity, and 9 read-only m
 | `service_coverage()` | Which categories AiFinPay covers and the providers in each. |
 | `network_stats()` | Public protocol statistics. |
 | `leaderboard()` | Public on-chain leaderboard of AiFinPay agents. |
-| `quote_cost(...)` | Preview the fee-on-top cost for a given price (no payment). |
+| `quote_cost(...)` | Preview canonical gross-inclusive AIFP-1 economics (no payment). |
 | `verify_passport(pubkey)` | Whether a key holds an AiFinPay AgentPassport. |
 | `agent_profile(address)` | Public profile + activity summary for an agent. |
 
