@@ -34,8 +34,8 @@ hard spend cap with `AIFINPAY_MAX_USD` before enabling them.
 | `agent_quote` | `(url, method?)` | Inspect a 402 challenge **without** paying — detected facilitator flavor plus quoted amount and fee preview. |
 | `agent_address` | `()` | Return the agent's Solana (base58) and Polygon (EVM) addresses so you know where to fund it. |
 | `agent_claim_self` | `({ magic_link_url, label? })` | Attach this agent to a user's AiFinPay account by signing a claim challenge with its own key. |
-| `pay_with_split` | `({ chain, merchant_wallet, merchant_amount, order_id, fee_recipient? })` | Get on-chain instructions for a fee-on-top atomic 3-way (B2B) payment. Merchant gets the full price; protocol + creator fees are added on top. |
-| `quote_split` | `({ chain, merchant_amount })` | Pure-view preview of the fee-on-top split breakdown — no payment, no auth. |
+| `pay_with_split` | `(legacy fields accepted)` | Retired compatibility tool. Returns `legacy_split_route_retired`; never creates an invoice or moves funds. |
+| `quote_split` | `(legacy fields accepted)` | Retired compatibility tool. Use a canonical AIFP-1 quote. |
 
 <Note>
 `pay_with_split` returns on-chain instructions/invoice; it does **not** itself
@@ -65,7 +65,7 @@ public AiFinPay network catalog and statistics.
 | `service_coverage` | `()` | Which categories of AI service AiFinPay covers and the providers in each. |
 | `network_stats` | `()` | Public protocol statistics: supported networks, active agents, total settled volume, active providers. |
 | `leaderboard` | `()` | The public on-chain leaderboard of AiFinPay agents ranked by settled volume. |
-| `quote_cost` | `({ amount, asset? })` | Preview the fee-on-top breakdown (merchant + protocol fee + creator fee + total) for a given price, without paying. |
+| `quote_cost` | `({ amount, asset? })` | Preview gross-inclusive AIFP-1 economics (99/1/0) without paying. |
 | `verify_passport` | `({ pubkey })` | Whether an agent public key holds an AiFinPay AgentPassport, plus its on-chain status. |
 | `agent_profile` | `({ address })` | Public profile and activity summary for an agent by its EVM or Solana address. |
 

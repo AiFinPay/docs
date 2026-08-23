@@ -105,8 +105,8 @@ You saw one function call. Under the hood:
     chain, asset, `payTo` address, amount, and a one-time `nonce`.
   </Step>
   <Step title="Settle on-chain">
-    The SDK submitted one transaction on Polygon mainnet — an atomic
-    split (merchant / treasury / IP-creator) in a single tx. No
+    The SDK submitted one transaction on Polygon mainnet — a gross-inclusive
+    AIFP-1 split (merchant 99% / AiFinPay 1% / creator 0%) in one verified tx. No
     custodian touches the funds at any point.
   </Step>
   <Step title="Retry with proof">
@@ -126,7 +126,7 @@ You saw one function call. Under the hood:
 <CardGroup cols={2}>
   <Card title="Python SDK" icon="python" href="/pay/python">
     Full `aifinpay-agent` API: agent persistence, custom payloads, and
-    fee-on-top split invoices.
+    canonical gross-inclusive settlement and fail-closed route verification.
   </Card>
   <Card title="Node / TypeScript SDK" icon="node-js" href="/pay/node">
     Full `@aifinpay/agent` API for TypeScript and Node runtimes.

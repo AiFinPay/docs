@@ -29,9 +29,9 @@ today (POL / USDC / USDT); your payout wallet is a Polygon `0x…` address.
    the paid quota down.
 4. You **track** revenue via the merchant feeds or a `receipt.settled` webhook.
 
-Fee model (live): the ~1% protocol fee is charged **on top** of your price — you receive
-your full quoted amount, the calling agent pays the surcharge. As a split of the
-grossed-up total that is **98.99% merchant / 1.00% treasury / 0.01% IP-creator**. See
+Canonical AIFP-1 economics are gross-inclusive: the payer total equals the
+quoted gross amount, the merchant receives 99%, AiFinPay receives 1%, and
+creator/referral receives 0%. The fee is not added on top. See
 [Pricing, units and limits](/reference/pricing-and-limits).
 
 ## Register &amp; manage
@@ -141,5 +141,5 @@ gateway config endpoints (`/api/me/merchants/:id/gateway`, `…/rotate-origin-se
 
 - **Settlement is Polygon-only.** Solana and other chains are not on the merchant path.
 - **No merchant SDK** is planned — verification stays a few lines on a standard JWT library.
-- A future upgrade moves the fee model from fee-on-top (98.99/1/0.01) to fee-from-gross
-  (99/1/0); until it ships, the live model is fee-on-top as described above.
+- Production settlement remains disabled until the exact v1.3 deployment,
+  runtime hash/profile and paid E2E evidence are verified.

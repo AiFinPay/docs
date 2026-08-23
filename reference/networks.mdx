@@ -1,68 +1,49 @@
 ---
-title: "Supported networks"
-description: "AiFinPay is live across 12 networks — 7 with the full smart-contract stack, plus splitter settlement on Optimism, BOT Chain, XRPL EVM, NEAR and Aptos."
+title: "Network inventory and readiness"
+description: "How AiFinPay distinguishes source support, deployments, verified runtime profiles and payment-live routes."
 ---
 
-AiFinPay is **multichain by design** — chains are execution environments, not
-products. The same SDK and the same fee-on-top model work across every network.
-**Twelve networks are live today.**
+AiFinPay is multichain by design, but **network inventory is not production
+readiness**. A logo, contract address, historical transaction or merged source
+tree must not be presented as a live payment rail.
 
-<Info>
-  SDK settlement is live on **Polygon** (default) today. The full contract stack
-  is deployed across the chains below; the Solana program is deployed, but its
-  `b2b_pay_with_split` settlement instruction and per-chain SDK routing are still
-  rolling out. All Cores carry the canonical manifesto hash `0x27b28e30…`.
-</Info>
+## One economics model on every chain
 
-## Full Core — 7 chains
+| Route | Settlement semantics | AiFinPay fee | Creator fee |
+|---|---|---:|---:|
+| AIFP-1 | gross-inclusive; merchant 99% | 1% | 0% |
+| AIFP-2 / x402 | provider receives 100% | 0% | 0% |
 
-Core + AgentPassport + MSECCOToken, with Pyth-priced settlement. MSECCOToken is deployed but was retired on 2026-08-06 and has never been minted — it is listed here because the contract exists, not because it is used.
+Network gas is separate in both routes.
 
-| Network | Assets | Explorer | Key contract |
-|---|---|---|---|
-| **Solana** | SOL · USDC · USDT | [solscan.io](https://solscan.io) | Program [`5g9zWHF1…vKFx2`](https://solscan.io/account/5g9zWHF1Vv6GiGpA2ZbJQbSCDZd5hAk9AyvabRJvKFx2) |
-| **Polygon** | POL · USDC · USDT | [polygonscan.com](https://polygonscan.com) | B2BSplitter [`0xE34Fc0…8440`](https://polygonscan.com/address/0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440) |
-| **Avalanche** | AVAX · USDC · USDT | [snowtrace.io](https://snowtrace.io) | Core [`0x147d8f…94cC`](https://snowtrace.io/address/0x147d8fF8c027E24303b5B99CbC8843e1D3dF94cC) |
-| **BNB Chain** | BNB · USDC · USDT | [bscscan.com](https://bscscan.com) | Core [`0x29e751…b542`](https://bscscan.com/address/0x29e7519C653E1b383e8Be74675666bbA51bAb542) |
-| **Arbitrum** | ETH · USDC | [arbiscan.io](https://arbiscan.io) | Core [`0x147d8f…94cC`](https://arbiscan.io/address/0x147d8fF8c027E24303b5B99CbC8843e1D3dF94cC) |
-| **Base** | ETH · USDC | [basescan.org](https://basescan.org) | Core [`0xF03B33…Eb74`](https://basescan.org/address/0xF03B3387415D557b6ab709D06E8aF0b4ABD6Eb74) |
-| **Unichain** | ETH · USDC | [uniscan.xyz](https://uniscan.xyz) | Core [`0x493dc0…6f53`](https://uniscan.xyz/address/0x493dc0e34f13b2fd50bab7156d3850f3b86c6f53) |
+## Readiness states
 
-Each Full Core chain also deploys **AgentPassport** and **MSECCOToken** (deployed, unused); Base and
-Unichain additionally have a standalone **B2BSplitter**. See the
-[manifest](https://api.aifinpay.io/manifesto.json) for the complete address set.
+| State | Meaning |
+|---|---|
+| `source` | Canonical implementation exists and its unit tests pass. |
+| `deployed` | An address exists, but runtime/profile evidence may still be missing. |
+| `verified` | Address, chain ID, runtime hash, version and BPS profile match the reviewed release. |
+| `payment-live` | Verified route also passed controlled paid E2E and final security gates. |
+| `legacy` | Historical implementation with incompatible economics or ABI; must not be selected by SDK/backend. |
 
-## Splitter — 3 chains
+## Current release boundary
 
-Atomic split settlement via the B2BSplitter (no oracle).
+- EVM, Solana and Casper have canonical source release candidates.
+- Current payment signing remains fail-closed until the exact deployment,
+  runtime hash/profile and paid E2E evidence are pinned.
+- Historical Polygon v1.1/v1.2 splitters and the historical Solana Seat gate are
+  not canonical AIFP-1 or AIFP-2 payment routes.
+- Bitcoin, Avalanche, Sui, Stellar, Tron, NEAR and Aptos repositories are
+  inventory/legacy until each is reconciled and independently verified.
+- AIFP-3 Agent Passport identity records are separate from AIFP-1/AIFP-2
+  settlement and do not make a chain payment-live.
 
-| Network | Assets | Explorer | B2BSplitter |
-|---|---|---|---|
-| **Optimism** | ETH · USDC | [optimistic.etherscan.io](https://optimistic.etherscan.io) | [`0xee9280…a83cb`](https://optimistic.etherscan.io/address/0xee92807decaa3a02f1e165dd7efcd92ab9aa83cb) |
-| **BOT Chain** | BOT | [scan.botchain.ai](https://scan.botchain.ai) | [`0x271870…b587`](https://scan.botchain.ai/address/0x271870ABb6e6756D97191eBdb27C1873911bb587) |
-| **XRPL EVM** | XRP | [explorer.xrplevm.org](https://explorer.xrplevm.org) | — |
+## Required release evidence
 
-## Splitter MVP — 2 chains (non-EVM)
+For each enabled chain publish the chain ID, canonical address/program ID,
+artifact version, runtime/code hash, on-chain profile, supported assets, audit
+commit, paid E2E transaction and activation date. If any field is missing, the
+route remains disabled.
 
-| Network | Assets | Explorer |
-|---|---|---|
-| **NEAR** | NEAR | [nearblocks.io](https://nearblocks.io) |
-| **Aptos** | APT | [explorer.aptoslabs.com](https://explorer.aptoslabs.com) |
-
-<Note>
-  Also live on **testnet**: **Casper** (Agentic Buildathon — an agent settlement
-  layer) and **Sui** (Move).
-</Note>
-
-## Fee model
-
-A flat protocol fee is added on top of the provider's price and settled in one
-transaction — **99% provider / 1% treasury / 0.01% creator**. No token, no
-staking — pay per request. Treasury is multisig-owned.
-
-## How an agent proves payment
-
-- **EVM chains:** the on-chain split tx → resend with `x-tx-hash` + `x-order-id`.
-- **Solana:** Ed25519 signature over a one-time nonce + `b2b_pay_with_split` → `x-solana-tx` + `x-order-id`.
-
-See [x402 by hand](/pay/manual-flow) for the full handshake.
+See [Pricing, units and limits](/reference/pricing-and-limits) for the exact
+economic vectors.
