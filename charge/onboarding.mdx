@@ -159,27 +159,24 @@ PORT=3000                      # bridge listen port
 
 ## The on-chain split
 
-Every successful call generates exactly one `Payment` event on the verified
-`B2BSplitter` contract at
-[`0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440`](https://polygonscan.com/address/0xE34Fc0E6694821c600Fa0955C0F74720ea6d8440).
-You keep **98.99%**; the protocol fee is **1.00%**.
+AIFP-1 settles one quoted **gross** amount through a verified B2BSplitter v1.3
+route:
 
-```
-agent  ──payment──▶  B2BSplitter.payMatic
-                        │
-                        ├──── 98.99% ────▶  YOUR merchant wallet
-                        ├──── 1.00%  ────▶  AiFinPay treasury Safe
-                        └──── 0.01%  ────▶  ipCreator (or treasury if unset)
-
-emit Payment(payer, merchant, address(0), totalAmount,
-             merchantAmount, treasuryAmount, ipCreatorAmount, orderId)
+```text
+payer total = quoted gross
+                     ├──── 99% ────▶ merchant wallet
+                     ├────  1% ────▶ AiFinPay treasury
+                     └────  0% ────▶ creator/referral
 ```
 
-You don't deploy or upgrade any contract, and you don't sign a partner
-agreement on-chain. The 1% protocol fee is structural — every `payMatic` call
-routes through the splitter, and the split is hard-coded by the Gnosis Safe
-owner. Agents can also pay in USDC/USDT via the standard x402 (ERC-3009)
-facilitator path; the same 98.99 / 1.00 / 0.01 split applies.
+The fee is not added on top. AIFP-2/x402 is a separate route with a current 0%
+AiFinPay protocol fee; the provider receives 100% and network gas is separate.
+
+A contract address or historical transaction is not sufficient readiness
+evidence. The bridge must remain fail-closed until its exact v1.3 address,
+runtime hash, on-chain BPS profile, merchant target, asset metadata and paid E2E
+evidence are pinned for the release. Historical v1.1/v1.2
+`payMatic`/three-way splitters are legacy and must not be selected.
 
 <Tip>
 If your upstream returns `5xx`, the bridge returns `502` to the agent and does
