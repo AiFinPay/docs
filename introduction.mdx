@@ -89,6 +89,26 @@ both, independently.
   </Card>
 </CardGroup>
 
+## The dashboard
+
+Everything above can be driven from code alone, but the running product has a
+control panel: **[dash.aifinpay.io](https://dash.aifinpay.io)**.
+
+It is where you register a site, price its endpoints, watch which agents paid
+for what, set a payout wallet, and configure webhooks. Whatever you declare in
+code with `ensureResources()` shows up there, and whatever you draw there is
+picked up by the gate within about a minute — the two surfaces edit the same
+registry, so you can start in either one.
+
+<CardGroup cols={2}>
+  <Card title="Set up your site" icon="gauge" href="/charge/dashboard">
+    Endpoints, pricing tiers, payout wallet, and the paywall builder.
+  </Card>
+  <Card title="Connect your gateway" icon="server" href="/charge/gateway">
+    Point your domain at AiFinPay, or verify receipts in your own backend.
+  </Card>
+</CardGroup>
+
 ## SDKs and tooling
 
 | Package | Install | Use it for |
