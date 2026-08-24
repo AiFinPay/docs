@@ -102,6 +102,22 @@ app.get("/api/search", (req, res) => res.json({ results: [] }));
 app.listen(3000);
 ```
 
+### How a request's price is resolved
+
+One rule set on both the hosted gateway and the SDK, so moving between them
+never changes what an agent is charged:
+
+1. **Every URL behind the gate is paid by default.** A path you never
+   registered is an *unpriced* path, not a free one — it bills at the default
+   tier (`standard`, or whatever `tier` you set on the mount). Registering endpoints refines prices; it does not open holes.
+2. **The most specific pattern wins.** `route_pattern` is an exact path or a
+   `/prefix/*` wildcard; when several match, the longest pattern applies,
+   regardless of registration order. With `/api/*` at `standard` and
+   `/api/reports/*` at `premium`, a call to `/api/reports/2026` bills premium.
+3. **Free is explicit.** The only way a path under the gate answers without
+   payment is an endpoint with `paywall_enabled: false` (or a merchant policy
+   granting that agent free units).
+
 ### Panel-owned routes
 
 No `ensureResources` anywhere. Draw routes and prices in the dashboard's
