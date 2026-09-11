@@ -34,6 +34,9 @@ const missingFiles = [...pages].filter(
   (page) => !fs.existsSync(path.join(root, `${page.slice(1)}.mdx`)),
 );
 const missingLinks = [];
+const missingAssets = [config.favicon, config.logo?.light, config.logo?.dark]
+  .filter((asset) => typeof asset === "string" && asset.startsWith("/"))
+  .filter((asset) => !fs.existsSync(path.join(root, asset.slice(1))));
 const linkPattern = /(?:\]\(|href=["'])(\/[A-Za-z0-9_./-]+)/g;
 
 for (const file of files) {
@@ -46,9 +49,10 @@ for (const file of files) {
   }
 }
 
-if (missingFiles.length || missingLinks.length) {
+if (missingFiles.length || missingLinks.length || missingAssets.length) {
   if (missingFiles.length) console.error("Missing configured pages:\n" + missingFiles.join("\n"));
   if (missingLinks.length) console.error("Missing internal links:\n" + missingLinks.join("\n"));
+  if (missingAssets.length) console.error("Missing configured assets:\n" + missingAssets.join("\n"));
   process.exitCode = 1;
 } else {
   console.log(`OK: ${pages.size} configured pages and no missing internal links`);

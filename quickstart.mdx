@@ -41,7 +41,8 @@ hold to use it.
 
     agent = Agent.new()
     print("Fund this address with a few cents of MATIC:", agent.address)
-    print("Save this secret:", agent.secret_b58)
+    # If reusing this identity, store agent.secret_b58 in a local secret
+    # manager or keypair file; never print it into shared logs.
     ```
 
     ```ts Node
@@ -105,9 +106,10 @@ You saw one function call. Under the hood:
     chain, asset, `payTo` address, amount, and a one-time `nonce`.
   </Step>
   <Step title="Settle on-chain">
-    The SDK submitted one transaction on Polygon mainnet — a gross-inclusive
-    AIFP-1 split (merchant 99% / AiFinPay 1% / creator 0%) in one verified tx. No
-    custodian touches the funds at any point.
+    The SDK submits one transaction using the settlement terms in the
+    challenge. It verifies the quoted amount and route economics before
+    signing; no custodian touches the funds at any point. For canonical AIFP-1
+    economics, see [Pricing, units and limits](/reference/pricing-and-limits).
   </Step>
   <Step title="Retry with proof">
     The SDK retried your request with the payment proof headers, the
