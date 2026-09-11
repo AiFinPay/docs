@@ -4,28 +4,38 @@ The AiFinPay developer documentation, built with [Mintlify](https://mintlify.com
 — the same platform our competitors use. Role × language structure: pay for
 services / charge for your API / reference.
 
-## Go live at docs.aifinpay.io
+## Source and deployment
 
-1. **Push to GitHub.** Put this folder in a repo (e.g. `AiFinPay/docs`).
-2. **Connect Mintlify.** Sign up at https://mintlify.com → **Connect GitHub** →
-   pick the repo (and this subfolder if it isn't the repo root). Mintlify
-   rebuilds on every push and gives you a preview at `<project>.mintlify.app`.
-3. **Custom domain.** Mintlify dashboard → **Settings → Custom domain** →
-   `docs.aifinpay.io`. Mintlify shows a CNAME target.
-4. **DNS (Cloudflare, `aifinpay.io` zone).** Add a CNAME:
-   `docs` → the value Mintlify gives (usually `cname.mintlify.app`), per
-   Mintlify's proxied/DNS-only instruction.
-5. **Assets.** Drop logo files at `logo/light.svg` + `logo/dark.svg` and
-   `favicon.svg` (reuse the ones from `ofh-master/src/assets`).
+This repository is the canonical docs source. The `origin` remote is the
+AiFinPay docs repository, whose default branch is `main`; a personal remote is
+also configured for mirror or recovery workflows. Work on a branch, review it,
+and merge or push through the normal repository workflow.
 
-Then point the main-site nav **DOCS** link at `https://docs.aifinpay.io`
-(currently it points at the interim React `/docs` hub).
+The intended deployment mechanism is Mintlify at `https://docs.aifinpay.io`.
+The connected repository and custom-domain status must be verified in the
+Mintlify project; this checkout contains no provider-side deployment metadata.
+Do not create a second application deployment or move the docs into another
+repository. Mintlify should read `docs.json` and publish its configured page
+tree. The main site already links its **DOCS** navigation to this domain, and
+its **DASHBOARD** / provider CTAs go to the self-service customer panel at
+[dash.aifinpay.io](https://dash.aifinpay.io).
+
+The logo and dark/light assets are already checked in under `logo/`; keep them
+in place when editing the site.
 
 ## Local preview
 
 ```bash
 npm i -g mint
 mint dev          # http://localhost:3000
+```
+
+## Local link check
+
+The repository includes a dependency-free check for local page links:
+
+```bash
+node scripts/check-internal-links.mjs
 ```
 
 ## Structure

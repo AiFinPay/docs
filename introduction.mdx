@@ -1,9 +1,9 @@
 ---
 title: "AiFinPay — Payment Infrastructure for AI Agents"
-description: "Stripe for autonomous AI agents. One line of code settles a real on-chain payment over HTTP, then returns the gated response. Non-custodial, multichain, token-free."
+description: "Stripe for autonomous AI agents. One line of code settles a real on-chain payment over HTTP on currently enabled routes, then returns the gated response. Non-custodial, multichain, token-free."
 ---
 
-**AiFinPay is payment infrastructure for autonomous AI agents.** One line of code — `agent.pay(url)` — and your agent settles a real on-chain payment — live across 12 networks — then receives the gated response.
+**AiFinPay is payment infrastructure for autonomous AI agents.** One line of code — `agent.pay(url)` — and your agent settles a real on-chain payment on the route advertised by the challenge, then receives the gated response. Current payment-live routes and their evidence are tracked in the [network readiness reference](/reference/networks); the SDK's live settlement path is Polygon while per-chain routing is rolling out.
 
 It is the same idea Stripe brought to web checkouts, applied to machine-to-machine commerce: a drop-in rail an agent uses to pay for any API call, and a drop-in way for a provider to charge for one.
 
@@ -12,7 +12,7 @@ It is the same idea Stripe brought to web checkouts, applied to machine-to-machi
     Agents hold their own keys and sign their own transactions. AiFinPay never takes custody of funds.
   </Card>
   <Card title="Multichain" icon="link">
-    Contracts live on 12 mainnet networks — 7 with the full smart-contract stack. SDK settlement is live on Polygon today; per-chain routing is rolling out.
+    Network inventory and deployment status are tracked by readiness state. SDK settlement is live on Polygon today; per-chain routing is rolling out only as each route passes verification and paid end-to-end checks.
   </Card>
   <Card title="Token-free" icon="circle-check">
     No protocol token to buy, hold, or speculate on. Agents pay in MATIC/POL or SOL — the assets they already hold.
