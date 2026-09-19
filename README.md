@@ -43,7 +43,8 @@ node scripts/check-internal-links.mjs
 ```
 docs.json                  Mintlify config (theme, nav tree)
 introduction.mdx           What AiFinPay is + role router
-quickstart.mdx             Fastest path to a first paid call
+skills.mdx                 Public payer and merchant skill entry
+quickstart.mdx             Setup and current client availability
 pay/                       Agent that PAYS (client)
   node.mdx · python.mdx · mcp.mdx · manual-flow.mdx
 charge/                    Provider that gets PAID (server)
