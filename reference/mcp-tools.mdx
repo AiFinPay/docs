@@ -1,171 +1,39 @@
 ---
-title: "MCP Tools Reference"
-description: "The 7 tools exposed by @aifinpay/mcp — the agent payment + identity surface. (A read-only directory toolset is on the roadmap.)"
+title: "MCP tools reference"
+description: "The actual registered tools in @aifinpay/mcp 2.1.0."
 ---
 
-`@aifinpay/mcp` is an [MCP](https://modelcontextprotocol.io) server that wraps
-AiFinPay's autonomous x402 payment loop as agent-callable tools. Drop it into
-Claude Desktop, MCP Inspector, or any MCP-aware runtime and your agent can pay
-for services and browse the AiFinPay network without you writing any payment
-code.
+Verified against published **@aifinpay/mcp 2.1.0** on September 19, 2026.
+Use the server's `tools/list` for exact input schemas in your installed version.
 
-It exposes **7 tools** that move money or bind identity. AiFinPay is payment
-infrastructure for AI agents — settlement happens in SOL, USDC, USDT, or POL,
-and there is no token to buy. The internal credit that used to be earned was retired on 2026-08-06 and never minted, so there is no
-tradable asset.
+| Tool | Purpose |
+|---|---|
+| `agent_address` | Read the selected wallet's public addresses |
+| `agent_reload` | Reload configured wallet files in the current connection |
+| `agent_quota` | Inspect hosted-meter quota; self-hosted consumption is tracked by the merchant |
+| `agent_history` | Read indexed transactions or retained batch history |
+| `agent_passport_resolve` | Resolve a public Agent Passport |
+| `settlement_routes` | Inspect route availability |
+| `settlement_invoice` | Prepare a non-signing settlement invoice |
+| `settlement_solana` | Inspect Solana settlement instructions |
+| `settlement_casper` | Inspect Casper settlement instructions |
+| `deployment_info` | Read deployment metadata |
+| `dev_payment_quote` | Request a dev quote; only registered in dev mode |
 
-<Info>
-The 7 tools below need a funded agent — see [agent setup](#agent-setup) below.
-A read-only directory toolset (`list_providers`, `network_stats`,
-`leaderboard`, …) is on the roadmap and **not yet registered** in the published
-server — see [Roadmap](#roadmap-directory-tools). Until then, use the
-public REST discovery endpoints (`/api/leaderboard`, `/.well-known/x402.json`) for catalog/stats.
-</Info>
+There are ten default tools, plus the optional dev quote tool. None signs or
+broadcasts a payment. `agent_reload` changes the in-process wallet selection;
+it does not transfer funds.
 
-## Payment tools
+The server also exposes the Markdown resource `aifinpay://skill`. Read it for
+wallet selection and the current workflow.
 
-These tools can settle on-chain or bind the agent to an account. Always set a
-hard spend cap with `AIFINPAY_MAX_USD` before enabling them.
+## Tools absent from this release
 
-| Tool | Signature | What it does |
-|---|---|---|
-| `payable_fetch` | `(url, method?, body?, headers?, …)` | Fetch any URL. On HTTP 402, auto-detect the facilitator, sign, pay, and retry. Returns `{ status, ok, headers, body }`. |
-| `agent_call` | `({ provider, body, method?, … })` | Pay a registered AiFinPay provider (e.g. `exa`, `io-net`, `venice`) and return its response. |
-| `agent_quote` | `(url, method?)` | Inspect a 402 challenge **without** paying — detected facilitator flavor plus quoted amount and fee preview. |
-| `agent_address` | `()` | Return the agent's Solana (base58) and Polygon (EVM) addresses so you know where to fund it. |
-| `agent_claim_self` | `({ magic_link_url, label? })` | Attach this agent to a user's AiFinPay account by signing a claim challenge with its own key. |
-| `pay_with_split` | `(legacy fields accepted)` | Retired compatibility tool. Returns `legacy_split_route_retired`; never creates an invoice or moves funds. |
-| `quote_split` | `(legacy fields accepted)` | Retired compatibility tool. Use a canonical AIFP-1 quote. |
+`payable_fetch`, `agent_call`, `agent_quote`, `pay_with_split`, `quote_split`
+and `agent_claim_self` are not registered. Do not instruct an agent to call
+them or to replace a missing payment tool with improvised transaction signing.
 
-<Note>
-`pay_with_split` returns on-chain instructions/invoice; it does **not** itself
-broadcast funds. The agent executes the returned instructions with its own
-chain SDK. `chain` accepts `"solana"` or `"polygon"`, and `merchant_amount` is
-a string in base units (lamports for Solana, wei for Polygon).
-</Note>
+## Start here
 
-## Roadmap: directory tools
-
-<Warning>
-These read-only directory tools are **planned but not yet registered** in the
-published `@aifinpay/mcp` server — calling them will fail with "unknown tool".
-They are documented here as the intended surface. For catalog/stats today, use
-the public REST discovery endpoints (`/api/leaderboard`, `/.well-known/x402.json`). This section is
-generated from the roadmap, not from the live `tools/list`.
-</Warning>
-
-When shipped, these will never move funds, never require auth, and return the
-public AiFinPay network catalog and statistics.
-
-| Tool | Signature | What it does |
-|---|---|---|
-| `list_providers` | `()` | List the AI services available through AiFinPay (web search, image generation, LLM inference, …) with per-call price and supported networks. |
-| `provider_info` | `({ name })` | Details for one provider by name — price, supported networks, service type, homepage. |
-| `provider_status` | `()` | Report which provider bridges are currently reachable (up/down). |
-| `service_coverage` | `()` | Which categories of AI service AiFinPay covers and the providers in each. |
-| `network_stats` | `()` | Public protocol statistics: supported networks, active agents, total settled volume, active providers. |
-| `leaderboard` | `()` | The public on-chain leaderboard of AiFinPay agents ranked by settled volume. |
-| `quote_cost` | `({ amount, asset? })` | Preview gross-inclusive AIFP-1 economics (99/1/0) without paying. |
-| `verify_passport` | `({ pubkey })` | Whether an agent public key holds an AiFinPay AgentPassport, plus its on-chain status. |
-| `agent_profile` | `({ address })` | Public profile and activity summary for an agent by its EVM or Solana address. |
-
-## Install
-
-```bash
-# Install globally so it's usable as `npx @aifinpay/mcp` from any client config
-npm install -g @aifinpay/mcp
-```
-
-## Use with Claude Desktop
-
-Add the server to `~/Library/Application Support/Claude/claude_desktop_config.json`,
-then restart Claude Desktop:
-
-```json
-{
-  "mcpServers": {
-    "aifinpay": {
-      "command": "npx",
-      "args": ["@aifinpay/mcp"],
-      "env": {
-        "AIFINPAY_AGENT_SECRET": "<base58 secret>",
-        "AIFINPAY_MAX_USD": "0.50"
-      }
-    }
-  }
-}
-```
-
-Claude can now call any of the 7 tools above like any other tool.
-
-## Agent setup
-
-If `AIFINPAY_AGENT_SECRET` is not set, the server generates an **ephemeral**
-keypair and prints it to stderr at startup:
-
-```text
-[warn] no AIFINPAY_AGENT_SECRET set — generated EPHEMERAL agent.
-  address: 9HucVaL5yinJ4MfBKCFnz5QJBGwK33bfSQKw15pSe3Ch
-  secret:  2vfeWAYfkpTNGSgDpBonzmjkckrTKa5GTnhhztY141YcSKYrqCvtojVukQAQiJbbRLgdcfEdyqHbRMsUft6Pb7nD
-  >> Save this secret to AIFINPAY_AGENT_SECRET to keep the agent across restarts.
-```
-
-Save the printed secret to `AIFINPAY_AGENT_SECRET` so the agent identity (and
-any funded Seat) persists across restarts. Call `agent_address` to find out
-where to send funds.
-
-<Warning>
-The secret controls the agent's funds. Store it like any other private key —
-never commit it, and keep `AIFINPAY_MAX_USD` set as a hard per-payment cap.
-</Warning>
-
-## Environment variables
-
-| Var | Default | Purpose |
-|---|---|---|
-| `AIFINPAY_AGENT_SECRET` | — | Base58 secret. If absent, an ephemeral agent is generated and printed to stderr. |
-| `AIFINPAY_BASE_URL` | `https://aifinpay.io` | Backend URL for nonce and funding probes. |
-| `AIFINPAY_TIMEOUT_MS` | `30000` | Request timeout in milliseconds. |
-| `AIFINPAY_MAX_USD` | — | Hard cap per single payment. Strongly recommended. |
-
-## Programmatic use
-
-```ts
-import { createServer, loadConfigFromEnv } from "@aifinpay/mcp";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-
-const { server } = await createServer({
-  ...loadConfigFromEnv(),
-  agentSecretB58: "your-secret-here",
-  maxAmountUsd: 0.10,
-});
-await server.connect(new StdioServerTransport());
-```
-
-## How `payable_fetch` works
-
-<Steps>
-  <Step title="Send unauthenticated">
-    The tool sends the request with no payment header.
-  </Step>
-  <Step title="Detect the facilitator">
-    On `402`, the underlying [`@aifinpay/agent`](../node) SDK detects the
-    facilitator flavor (AiFinPay native, Coinbase x402, …).
-  </Step>
-  <Step title="Sign and retry">
-    It signs a payment payload and retries the request.
-  </Step>
-  <Step title="Return the result">
-    Returns `{ status, ok, headers, body }` to the agent.
-  </Step>
-</Steps>
-
-The flow is identical to calling `agent.pay(url)` directly — this package just
-wraps it as an MCP tool surface so LLM agents can pay without writing payment
-code.
-
-<Tip>
-Use `payable_fetch` (not the host's generic web-fetch tool) for any URL that
-might be a paid endpoint — a plain fetch can only see the 402 challenge and
-cannot sign the x402 payment header to settle it.
-</Tip>
+[Install the skill](/skills), [connect MCP](/pay/mcp), or read
+[site-specific route discovery](/ai-discovery).

@@ -37,7 +37,19 @@ Charging AI agents for your API takes three steps, and one decision.
 
 Either way the money path is identical and non-custodial: the agent pays
 on-chain **from its own wallet to yours** through the settlement contract, and
-what your side checks is a signed receipt. Your server never holds funds.
+what your side checks is a signed receipt. Signature verification is local and
+stateless; quota consumption is stateful and needs a counter store. Your server
+never holds funds.
+
+<Warning>
+The default `MemoryStore` is correct for one process only. If you run PM2,
+Node cluster, multiple containers, or more than one pod, pass a shared atomic
+store such as `redisStore` to `aifpGate`; otherwise each worker can spend the
+same prepaid batch independently. Keep the default `onStoreError: "closed"`
+behavior so a counter-store outage returns `503` instead of granting an
+uncounted request. The receipt's Ed25519/JWKS signature check does not replace
+this stateful metering step.
+</Warning>
 
 <Note>
 There is no sandbox yet: the first payment is real money on Polygon mainnet.
@@ -60,7 +72,10 @@ The package has two halves with different credentials, on purpose:
 
 What the gate does per request: no receipt → answer `HTTP 402` with
 machine-readable payment instructions; valid receipt → verify the Ed25519
-signature locally, meter the prepaid quota down, let the request through.
+signature locally, atomically meter the prepaid quota down in the configured
+store, and let the request through. Signature verification needs only the
+public JWKS; quota accounting still needs shared state when the gate runs in
+more than one process.
 There is no call to AiFinPay on the hot path — our availability never becomes
 your latency.
 
@@ -94,7 +109,7 @@ await merchant.ensureResources([
 ]);
 
 const registry = new ResourceRegistry({ merchant });
-await registry.start(); // fail fast rather than serve with an empty registry
+await registry.start(); // load the initial snapshot before serving
 
 const app = express();
 app.use("/api", aifpGate({ merchantId: merchant.merchantId, registry }));
@@ -167,13 +182,16 @@ HTTP 402
   "how_to_pay": [
     "POST https://api.aifinpay.io/v1/quote {…}",
     "settle the quoted batch on-chain from your own wallet",
-    "POST https://api.aifinpay.io/v1/pay {quote_id, chain, asset, tx_ref} -> quota receipt",
+    "POST https://api.aifinpay.io/v1/pay {quote_id, chain, asset, tx_ref, payment_authorization when the quote requires it} -> quota receipt",
     "retry this request with header: AIFP-Receipt: <receipt JWT>"
   ]
 }
 ```
 
-Agents on the AiFinPay SDK ([Node](/pay/node), [Python](/pay/python),
+Keep the complete quote response. When it includes `payment_authorization`, the
+client must sign the wallet-bound authorization described by that object and
+send it with `/v1/pay`; do not invent or omit that field in a hand-written
+client. Agents on the AiFinPay SDK ([Node](/pay/node), [Python](/pay/python),
 [MCP](/pay/mcp)) resolve that whole conversation from one `agent.pay(url)`
 call.
 
