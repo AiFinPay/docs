@@ -1,14 +1,16 @@
 ---
 title: "MCP tools reference"
-description: "The actual registered tools in @aifinpay/mcp 2.1.0."
+description: "The registered tools in @aifinpay/mcp 2.2.x."
 ---
 
-Verified against published **@aifinpay/mcp 2.1.0** on September 19, 2026.
-Use the server's `tools/list` for exact input schemas in your installed version.
+For **@aifinpay/mcp 2.2.x** (2.2.4 noted where it differs). Use the server's
+`tools/list` for exact input schemas in your installed version.
 
 | Tool | Purpose |
 |---|---|
+| `payable_fetch` | Pay for and fetch an AIFP-1 resource on Polygon; registered only when the owner enables payments |
 | `agent_address` | Read the selected wallet's public addresses |
+| `agent_claim_self` | Link the agent to its owner's dashboard with a one-time URL from My Agents (2.2.4+) |
 | `agent_reload` | Reload configured wallet files in the current connection |
 | `agent_quota` | Inspect hosted-meter quota; self-hosted consumption is tracked by the merchant |
 | `agent_history` | Read indexed transactions or retained batch history |
@@ -20,18 +22,20 @@ Use the server's `tools/list` for exact input schemas in your installed version.
 | `deployment_info` | Read deployment metadata |
 | `dev_payment_quote` | Request a dev quote; only registered in dev mode |
 
-There are ten default tools, plus the optional dev quote tool. None signs or
-broadcasts a payment. `agent_reload` changes the in-process wallet selection;
-it does not transfer funds.
+`payable_fetch` is the only tool that moves funds, and only within the owner's
+configured limits and origins. `agent_claim_self` signs only an AiFinPay claim
+challenge for the agent's own address. `agent_reload` changes the in-process
+wallet selection; it does not transfer funds.
 
 The server also exposes the Markdown resource `aifinpay://skill`. Read it for
 wallet selection and the current workflow.
 
-## Tools absent from this release
+## Tools not registered
 
-`payable_fetch`, `agent_call`, `agent_quote`, `pay_with_split`, `quote_split`
-and `agent_claim_self` are not registered. Do not instruct an agent to call
-them or to replace a missing payment tool with improvised transaction signing.
+`agent_call`, `agent_quote`, `pay_with_split` and `quote_split` are not
+registered. Do not instruct an agent to call them or to replace a missing
+payment tool with improvised transaction signing. If `payable_fetch` is missing,
+payments are not enabled in this server's configuration.
 
 ## Start here
 

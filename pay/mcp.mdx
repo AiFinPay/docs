@@ -1,15 +1,14 @@
 ---
 title: "Connect the AiFinPay MCP server"
-description: "Set up persistent agent identity, payment history, quotas and non-signing payment preparation."
+description: "Set up a persistent agent wallet, enable owner-limited payments, and link the agent to your dashboard."
 ---
 
 `@aifinpay/mcp` connects AiFinPay tools to an MCP-compatible assistant. Install
 [the payer skill](/skills) first so the assistant knows the workflow.
 
 <Note>
-Verified against published version **2.1.0** on September 19, 2026: this MCP
-server does not register payment-signing tools. `payable_fetch`, `agent_call`
-and `agent_quote` are unavailable. A quote or invoice does not move funds.
+MCP 2.2.x pays with `payable_fetch` once you enable payments below; without
+that configuration it only inspects. A quote or invoice does not move funds.
 </Note>
 
 ## Initialize a persistent wallet
@@ -20,10 +19,9 @@ npx @aifinpay/mcp init
 
 `init` selects an existing configured identity or creates a local keystore.
 The default file is `~/.aifinpay/agent.json`. Existing wallets are retained.
-Set `AIFINPAY_WALLET_PASSPHRASE` through your local secret environment before
-creation if you want the MCP keystore encrypted. The MCP process needs the
-same passphrase to read it. Without that variable, this init command creates
-a plaintext file protected by filesystem permissions.
+Since 2.2.3 a new wallet needs `AIFINPAY_WALLET_PASSPHRASE` (encrypted keystore);
+`init --plaintext` creates an unencrypted one for disposable tests only. The MCP
+process needs the same passphrase to read it.
 
 On a first plaintext wallet creation in an interactive terminal, init also
 prints a one-time recovery key. Prepare encryption before recording init;
@@ -42,7 +40,7 @@ Add this server through your client's MCP settings:
   "mcpServers": {
     "aifinpay": {
       "command": "npx",
-      "args": ["-y", "@aifinpay/mcp@2.1.0"]
+      "args": ["-y", "@aifinpay/mcp"]
     }
   }
 }
@@ -56,6 +54,41 @@ Connect or restart the server, then ask for `agent_address`. Compare it with
 the address printed by init. If init ran while the server was connected,
 `agent_reload` reloads wallet files in that connection. Changes to environment
 variables or package versions require reconnecting the process.
+
+## Enable payments
+
+Fund the wallet's EVM address with **POL on Polygon** and add to the server's
+environment (example limits):
+
+```json
+{
+  "AIFINPAY_PAYMENTS_ENABLED": "1",
+  "AIFINPAY_GATEWAY_ORIGINS": "https://merchant.example",
+  "AIFINPAY_GATEWAY_PATH_MODE": "direct",
+  "AIFINPAY_MAX_USD": "0.15",
+  "AIFINPAY_DAILY_USD": "1.00",
+  "AIFINPAY_MAX_GAS_POL": "0.05"
+}
+```
+
+The smallest batch is $0.10 plus gas; keep `AIFINPAY_MAX_USD` a little above the
+batch you expect. `payable_fetch` then buys and fetches GET resources on the
+approved origins. It checks the POL/USD rate independently of the quote:
+2.2.3 uses `api.coinbase.com`; 2.2.4 reads Chainlink on Polygon over the wallet's
+RPC first, then Coinbase, then CoinGecko.
+
+### Network access
+
+In a sandbox that allowlists outbound hosts, allow `api.aifinpay.io`, a Polygon
+RPC and a POL/USD source (see above). Without a rate `payable_fetch` stops before
+paying and nothing is spent.
+
+## Link the agent to your dashboard
+
+At [dash.aifinpay.io](https://dash.aifinpay.io) → **My Agents** → **Claim via
+MCP** you get a one-time URL; give it to the agent and it links itself with
+`agent_claim_self` (2.2.4+). With 2.2.3, use **Add agent by address** instead.
+You then see the agent's balance, payments and receipts.
 
 ## Try the supported tools
 
@@ -81,7 +114,10 @@ mean every host automatically loads every resource.
 | `AIFINPAY_WALLET_PASSPHRASE` | Decrypt an encrypted keystore; keep private |
 | `AIFINPAY_AGENTS_FILE` / `AIFINPAY_AGENT_ID` | Select a project identity by absolute file path and ID |
 | `AIFINPAY_BASE_URL` | AiFinPay backend origin |
-| `AIFINPAY_MAX_USD` | Underlying per-call budget setting; does not enable signing |
+| `AIFINPAY_PAYMENTS_ENABLED` | `1` registers `payable_fetch` (with the limits below) |
+| `AIFINPAY_MAX_USD` / `AIFINPAY_DAILY_USD` | Per-payment and 24h USD limits |
+| `AIFINPAY_MAX_GAS_POL` | Gas cap per transaction, in POL |
+| `AIFINPAY_GATEWAY_ORIGINS` | Exact HTTPS origins the agent may pay |
 | `AIFINPAY_MODE=dev` | Expose dev quoting with a separate dev backend |
 
 Wallet selection is: `SEED_HASH`, project agents file, legacy

@@ -31,12 +31,19 @@ Choose the runtime you use; installing MCP already includes its SDK dependency.
 Keep the persistent wallet local and verify its public address in the client.
 
 <Note>
-As checked on September 19, 2026, MCP 2.1.0 does not expose payment-signing
-tools. Node 2.0.3 AIFP-1 `fetchPaid` requires a reviewed Polygon v1.3 deployment
-pin and compatible quotes. A site offering an older v1.2 route cannot be made
-compatible by installing the skill or funding a wallet. Do not bypass a route
-verification failure. See [payment support](/pay/paywalled-sites).
+MCP `@aifinpay/mcp` 2.2.x pays with `payable_fetch` once the owner enables it,
+and Node `@aifinpay/agent` 2.1.x pays with `fetchPaid`. Both settle AIFP-1 on
+Polygon (splitter v1.4) in native POL; the smallest batch is $0.10 plus gas. The
+Python SDK does not pay yet. A quote or invoice alone does not move funds.
+See [payment support](/pay/paywalled-sites).
 </Note>
+
+After creating the wallet, link the agent to your account at
+[dash.aifinpay.io](https://dash.aifinpay.io) → **My Agents** to see its
+balance, payments and receipts. With MCP, **Claim via MCP** gives a one-time
+URL for the agent's `agent_claim_self` tool (MCP 2.2.4+); otherwise use **Add
+agent by address** and have the agent sign the challenge
+(`signDashboardClaim` in Node, `sign_dashboard_claim` in Python).
 
 Ask the agent to inspect the target origin's `/.well-known/x402.json` and its
 API catalog. Agree on the resource, receipt scope, batch cost and separate gas

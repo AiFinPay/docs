@@ -25,10 +25,10 @@ If your client accepts a Markdown instruction URL, use:
 - [Merchant instructions](https://raw.githubusercontent.com/AiFinPay/skill/main/agent/skills/aifinpay-merchant/SKILL.md)
 
 <Note>
-A skill is instructions, not a payment executor. As checked on September 19,
-2026, `@aifinpay/mcp@2.1.0` exposes wallet, history, quota and non-signing
-preparation tools. It does not expose `payable_fetch` or `agent_call`.
-Installing the skill does not change that. See the [MCP tool reference](/reference/mcp-tools).
+A skill is instructions, not a payment executor. Payments are executed by MCP
+`payable_fetch` (2.2.x, once the owner enables it) or Node `fetchPaid` (2.1.x).
+A skill copy older than 2.1.0 that calls MCP "read-only" or payments "release
+pending" is out of date — update it. See the [MCP tool reference](/reference/mcp-tools).
 </Note>
 
 ## I own an agent
