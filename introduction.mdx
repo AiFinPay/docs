@@ -28,10 +28,11 @@ side. Skills provide instructions; MCP and SDK packages provide tools.
 Read [the skill setup guide](/skills) and [quickstart](/quickstart).
 
 <Note>
-The published MCP 2.1.0 exposes wallet, history, quota and non-signing
-preparation tools. It does not execute payments. Node SDK AIFP-1 payments also
-require a compatible reviewed deployment; see [current payment support](/pay/paywalled-sites).
-A live merchant gate is not evidence that every published client supports it.
+MCP `@aifinpay/mcp` 2.2.x pays with `payable_fetch` once the owner enables it,
+and Node `@aifinpay/agent` 2.1.x pays with `fetchPaid`. Both settle AIFP-1 on
+Polygon (splitter v1.4) in native POL; the smallest batch is $0.10 plus gas. The
+Python SDK does not pay yet. A quote or invoice alone does not move funds.
+See [current payment support](/pay/paywalled-sites).
 </Note>
 
 ## How the gate works

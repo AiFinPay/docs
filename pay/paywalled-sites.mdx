@@ -9,12 +9,11 @@ subsequent covered requests use an `AIFP-Receipt` header and consume quota.
 
 ## Check the client before paying
 
-As verified on September 19, 2026:
-
-- `@aifinpay/mcp@2.1.0` has no payment-signing tool.
-- `@aifinpay/agent@2.0.3` has an AIFP-1 `fetchPaid` path that requires an
-  independently reviewed Polygon v1.3 deployment pin and matching quote
-  format. It does not execute a legacy v1.2 quote.
+- `@aifinpay/mcp` 2.2.x pays with `payable_fetch` once the owner enables it.
+- `@aifinpay/agent` 2.1.x pays with `fetchPaid` (v14 journal, gas cap and an
+  independent POL/USD rate you supply).
+- Both settle AIFP-1 on Polygon splitter v1.4 in native POL and do not execute a
+  legacy v1.2 quote. The Python SDK does not pay yet.
 - `agent.pay` and AIFP-1 `fetchPaid` are different protocol paths; one is not
   a fallback for a rejected deployment in the other.
 
@@ -31,9 +30,7 @@ A fresh quote supplies chain, asset, amount, merchant and expiry.
 
 For example, `dev.ratersapp.com` publishes both discovery and `/api/agent`.
 Its `/api/agent/genres` was priced at $0.0005 per standard request with an
-exact scope and a $0.10 minimum batch on the verification date. Its quoted
-v1.2 route was incompatible with the public client above; this is an
-integration readiness check, not a working payment quickstart.
+exact scope and a $0.10 minimum batch, settling on Polygon v1.4.
 
 ## Receipt scope
 

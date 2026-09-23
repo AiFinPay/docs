@@ -1,6 +1,6 @@
 ---
 title: "Python quickstart"
-description: "Build an AI agent that pays for gated APIs in Python with aifinpay-agent — generate a keypair, fund it, and call agent.pay()."
+description: "Agent identity and dashboard linking in Python with aifinpay-agent. Python does not pay AIFP-1 merchants yet — use MCP or Node for payments."
 ---
 
 `aifinpay-agent` is a non-custodial x402 payment client for autonomous AI
@@ -17,6 +17,14 @@ token-free — there is nothing to buy, stake, or trade. The internal credit
 that used to be earned on paid calls was retired on 2026-08-06 and was never
 minted, so there is no accounting unit to hold either.
 </Note>
+
+<Warning>
+**Python cannot pay AiFinPay merchants yet.** Live AIFP-1 payments settle on
+the Polygon v1.4 splitter, and that executor exists only in the Node SDK
+(`fetchPaid`) and the MCP server (`payable_fetch`). Use one of those to pay.
+`agent.sign_dashboard_claim(challenge)` links a Python agent to its owner's
+dashboard (My Agents → Add agent by address).
+</Warning>
 
 ## Install
 
@@ -145,24 +153,10 @@ agent = Agent.from_keypair_file("~/agent-wallet.json")
 Both accept the same keyword arguments as `Agent.new()` (e.g. `base_url`,
 `timeout`).
 
-## The AiFinPay-native Seat flow
+## The retired Seat flow
 
-For AiFinPay's own Seat-based flow you can request an invoice directly. The SDK
-is non-custodial, so it returns the on-chain instructions and **does not submit
-the transaction** — you build and sign it with the chain SDK of your choice.
-
-```python
-invoice = agent.reserve_seat_invoice(amount_usd=1.00, asset="USDC")
-
-print(invoice.amount_usd)      # 1.0
-print(invoice.treasury_vault)  # treasury address
-print(invoice.program_id)      # on-chain program id
-print(invoice.nonce)           # one-time nonce
-print(invoice.raw)             # full server response: mints, accounts, etc.
-```
-
-`asset` accepts `"SOL"` (routes to `/api/invoice`) or an SPL asset such as
-`"USDC"` / `"USDT"` (routes to `/api/invoice-spl`).
+The Solana Seat invoice flow (`reserve_seat_invoice`) is retired: the Solana
+program is closed and cannot execute. Do not pay it.
 
 <Info>
 **How the handshake works.** On a 402 the SDK reads the `x-nonce` from the
