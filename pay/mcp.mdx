@@ -7,7 +7,7 @@ description: "Set up a persistent agent wallet, enable owner-limited payments, a
 [the payer skill](/skills) first so the assistant knows the workflow.
 
 <Note>
-MCP 2.2.x pays with `payable_fetch` once you enable payments below; without
+MCP 2.2.0 and later pay with `payable_fetch` once you enable payments below; without
 that configuration it only inspects. A quote or invoice does not move funds.
 </Note>
 
@@ -67,12 +67,24 @@ environment (example limits):
   "AIFINPAY_GATEWAY_PATH_MODE": "direct",
   "AIFINPAY_MAX_USD": "0.15",
   "AIFINPAY_DAILY_USD": "1.00",
-  "AIFINPAY_MAX_GAS_POL": "0.05"
+  "AIFINPAY_MAX_GAS_POL": "0.3"
 }
 ```
 
 The smallest batch is $0.10 plus gas; keep `AIFINPAY_MAX_USD` a little above the
-batch you expect. `payable_fetch` then buys and fetches GET resources on the
+batch you expect.
+
+`AIFINPAY_MAX_GAS_POL` caps the worst case, not the fee you expect to pay.
+Before signing, the client prices the estimated gas plus 20% at the maximum fee
+per gas the Polygon RPC quotes, and refuses with `V14_GAS_BUDGET_EXCEEDED` if
+that exceeds the cap. The worst case follows the gas price: at about 280 gwei
+(September 2026) it is about 0.10 POL for a POL payment and about 0.21 POL when
+paying in USDC (`AIFINPAY_PAY_ASSET=USDC`: a token approval plus the
+settlement). `0.3` covers both at that price; check the current Polygon gas
+price and raise the cap when it is higher. The fee charged is usually a
+fraction of the cap, but the wallet must hold the batch plus the worst case.
+
+`payable_fetch` then buys and fetches GET resources on the
 approved origins. It checks the POL/USD rate independently of the quote:
 2.2.3 uses `api.coinbase.com`; 2.2.4 reads Chainlink on Polygon over the wallet's
 RPC first, then Coinbase, then CoinGecko.
@@ -116,8 +128,9 @@ mean every host automatically loads every resource.
 | `AIFINPAY_BASE_URL` | AiFinPay backend origin |
 | `AIFINPAY_PAYMENTS_ENABLED` | `1` registers `payable_fetch` (with the limits below) |
 | `AIFINPAY_MAX_USD` / `AIFINPAY_DAILY_USD` | Per-payment and 24h USD limits |
-| `AIFINPAY_MAX_GAS_POL` | Gas cap per transaction, in POL |
+| `AIFINPAY_MAX_GAS_POL` | Worst-case gas per payment, in POL; follows the gas price (see above) |
 | `AIFINPAY_GATEWAY_ORIGINS` | Exact HTTPS origins the agent may pay |
+| `AIFINPAY_GATEWAY_PATH_MODE` | `direct` for a site running its own paywall; `gateway` (default) for the hosted gateway |
 | `AIFINPAY_MODE=dev` | Expose dev quoting with a separate dev backend |
 
 Wallet selection is: `SEED_HASH`, project agents file, legacy
