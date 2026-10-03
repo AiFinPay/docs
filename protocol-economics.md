@@ -1,7 +1,9 @@
 # AiFinPay Protocol Economics
 
-**Effective date:** 14 August 2026  
-**Status:** Founder-approved canonical product and engineering rule  
+**Effective date:** 14 August 2026
+
+**Status:** Founder-approved canonical product and engineering rule
+
 **Jira source of truth:** AIFINP-122
 
 This document defines the current fee model for AiFinPay payment routes. It supersedes older examples that used a fee-bearing AIFP-2/x402 route or a `100/1` merchant split.
