@@ -1,21 +1,22 @@
 ---
 title: "MCP tools reference"
-description: "The registered tools in @aifinpay/mcp 2.2.x."
+description: "The registered tools in @aifinpay/mcp 2.11.4."
 ---
 
-For **@aifinpay/mcp 2.2.x** (2.2.4 noted where it differs). Use the server's
-`tools/list` for exact input schemas in your installed version.
+For **@aifinpay/mcp 2.11.4**. Use the server's `tools/list` for exact input
+schemas in your installed version.
 
 | Tool | Purpose |
 |---|---|
-| `payable_fetch` | Pay for and fetch an AIFP-1 resource on Polygon; registered only when the owner enables payments |
+| `payment_setup_status` | Read-only checklist: wallet, payments enabled, limits, balance, `funding` amount and one `next_step` |
+| `payable_fetch` | Pay for and fetch an AIFP-1 resource (Polygon by default, or the owner-selected served network); always listed, returns the setup checklist until the owner enables payments |
 | `agent_address` | Read the selected wallet's public addresses |
-| `agent_claim_self` | Link the agent to its owner's dashboard with a one-time URL from My Agents (2.2.4+) |
-| `agent_reload` | Reload configured wallet files in the current connection |
+| `agent_claim_self` | Link the agent to its owner's dashboard with a one-time URL from My Agents |
+| `agent_reload` | Reload wallet files in the current connection; reports `payments_enabled` and, when payments are off, that env changes need a server restart |
 | `agent_quota` | Inspect hosted-meter quota; self-hosted consumption is tracked by the merchant |
 | `agent_history` | Read indexed transactions or retained batch history |
 | `agent_passport_resolve` | Resolve a public Agent Passport |
-| `settlement_routes` | Inspect route availability |
+| `settlement_routes` | Inspect routes: AIFP-1 v1.4 first with live state, legacy v1.3 separately |
 | `settlement_invoice` | Prepare a non-signing settlement invoice |
 | `settlement_solana` | Inspect Solana settlement instructions |
 | `settlement_casper` | Inspect Casper settlement instructions |
@@ -34,8 +35,10 @@ wallet selection and the current workflow.
 
 `agent_call`, `agent_quote`, `pay_with_split` and `quote_split` are not
 registered. Do not instruct an agent to call them or to replace a missing
-payment tool with improvised transaction signing. If `payable_fetch` is missing,
-payments are not enabled in this server's configuration.
+payment tool with improvised transaction signing. If `payable_fetch` answers
+with a checklist instead of paying, follow its `next_step`: payments are not yet
+enabled in this server's configuration, or the server has not been restarted
+since they were.
 
 ## Start here
 

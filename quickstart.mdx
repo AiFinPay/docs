@@ -31,19 +31,22 @@ Choose the runtime you use; installing MCP already includes its SDK dependency.
 Keep the persistent wallet local and verify its public address in the client.
 
 <Note>
-MCP `@aifinpay/mcp` 2.2.x pays with `payable_fetch` once the owner enables it,
-and Node `@aifinpay/agent` 2.1.x pays with `fetchPaid`. Both settle AIFP-1 on
-Polygon (splitter v1.4) in native POL; the smallest batch is $0.10 plus gas. The
-Python SDK does not pay yet. A quote or invoice alone does not move funds.
-See [payment support](/pay/paywalled-sites).
+MCP `@aifinpay/mcp` 2.11.4 pays with `payable_fetch` once the owner enables it
+([five steps](/pay/mcp)); Node `@aifinpay/agent` 2.9.0 pays with `fetchPaid` and
+Python `aifinpay-agent` 2.7.0 with `fetch_paid`. All settle AIFP-1 (splitter
+v1.4) on Polygon by default, or on Base when the owner selects it, in the native
+currency or USDC; the smallest batch is $0.10 plus gas. A quote or invoice alone
+does not move funds. See [payment support](/pay/paywalled-sites).
 </Note>
 
 After creating the wallet, link the agent to your account at
 [dash.aifinpay.io](https://dash.aifinpay.io) → **My Agents** to see its
 balance, payments and receipts. With MCP, **Claim via MCP** gives a one-time
-URL for the agent's `agent_claim_self` tool (MCP 2.2.4+); otherwise use **Add
+URL for the agent's `agent_claim_self` tool; otherwise use **Add
 agent by address** and have the agent sign the challenge
-(`signDashboardClaim` in Node, `sign_dashboard_claim` in Python).
+(`signDashboardClaim` in Node, `sign_dashboard_claim` in Python). Set the
+agent's working limits there under **Controls**; AiFinPay enforces them on every
+quote and receipt.
 
 Ask the agent to inspect the target origin's `/.well-known/x402.json` and its
 API catalog. Agree on the resource, receipt scope, batch cost and separate gas

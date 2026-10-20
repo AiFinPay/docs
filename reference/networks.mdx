@@ -28,13 +28,19 @@ Network gas is separate in both routes.
 
 ## Current release boundary
 
-- EVM, Solana and Casper have canonical source release candidates.
-- Current payment signing remains fail-closed until the exact deployment,
-  runtime hash/profile and paid E2E evidence are pinned.
-- Historical Polygon v1.1/v1.2 splitters and the historical Solana Seat gate are
-  not canonical AIFP-1 or AIFP-2 payment routes.
-- Bitcoin, Avalanche, Sui, Stellar, Tron, NEAR and Aptos repositories are
-  inventory/legacy until each is reconciled and independently verified.
+- **Payment-live today: Polygon and Base**, AIFP-1 on splitter v1.4, in native
+  currency or USDC. The live list is the `networks` field of
+  [x402.json](https://api.aifinpay.io/.well-known/x402.json); it is built from the
+  networks this backend serves and is the only place to check.
+- Other EVM networks with v1.4 deployments are `deployed`, not payment-live:
+  the backend does not serve them yet, and a payment there would not earn a
+  receipt.
+- **Solana: disabled.** The deployment registry marks Solana clusters
+  settlement-enabled, but the backend does not serve Solana payments; the
+  historical Solana Seat program is closed on mainnet and must not be paid.
+- Historical Polygon v1.1/v1.2 splitters are not canonical AIFP-1 or AIFP-2
+  payment routes (v1.2 remains only for the legacy B2B bridge).
+- NEAR, Aptos and Casper are not payment executors in the current clients.
 - AIFP-3 Agent Passport identity records are separate from AIFP-1/AIFP-2
   settlement and do not make a chain payment-live.
 
