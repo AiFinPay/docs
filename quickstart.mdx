@@ -41,10 +41,12 @@ does not move funds. See [payment support](/pay/paywalled-sites).
 
 After creating the wallet, link the agent to your account at
 [dash.aifinpay.io](https://dash.aifinpay.io) → **My Agents** to see its
-balance, payments and receipts. With MCP, **Claim via MCP** gives a one-time
-URL for the agent's `agent_claim_self` tool; otherwise use **Add
-agent by address** and have the agent sign the challenge
-(`signDashboardClaim` in Node, `sign_dashboard_claim` in Python). Set the
+balance, payments and receipts. Under **Link an agent**, **Claim via MCP**
+gives a one-time URL for the agent's `agent_claim_self` tool. The URL works
+only through that tool: opening it in a browser, or pasting it into a chat that
+has no AiFinPay MCP, links nothing. Without the MCP, or for an account with 2FA
+on, link the wallet **by signed message** and have the agent sign the
+challenge (`signDashboardClaim` in Node, `sign_dashboard_claim` in Python). Set the
 agent's working limits there under **Controls**; AiFinPay enforces them on every
 quote and receipt.
 
