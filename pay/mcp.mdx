@@ -106,10 +106,15 @@ optional overrides in the server's `env` and restart the server (env is read at 
 above $5 / $20 stops the server at start with a message pointing to the
 dashboard; it is never silently clipped. Higher limits belong in Controls, or in
 the Node SDK with its own budgets.
-`AIFINPAY_GATEWAY_ORIGINS` narrows the sites the agent may pay to exact HTTPS
-origins; without it any HTTPS site can be fetched — the money still goes only
-to the registered merchant the AiFinPay quote names, never to an address a
-`402` claims. `AIFINPAY_PAYMENTS_ENABLED=0` switches payments off entirely.
+Without `AIFINPAY_GATEWAY_ORIGINS`, the agent pays only a merchant that has
+verified its site with AiFinPay, and only on that very site: before signing,
+`payable_fetch` looks up the merchant the AiFinPay quote names and refuses
+unless the site is DNS-verified and its host is the host being fetched (on the
+hosted gateway, verification alone). A refusal signs and sends nothing. The
+money goes only to that merchant, never to an address a `402` claims.
+Setting `AIFINPAY_GATEWAY_ORIGINS` to exact HTTPS origins replaces this check
+with your own allowlist. `AIFINPAY_PAYMENTS_ENABLED=0` switches payments off
+entirely.
 
 `AIFINPAY_MAX_GAS_POL` caps the worst-case fee, not the fee you expect to pay.
 Before signing, the client prices the estimated gas plus 20% at the maximum fee
@@ -172,7 +177,7 @@ mean every host automatically loads every resource.
 | `AIFINPAY_PAY_ASSET` | `USDC` to pay in USDC instead of the native currency |
 | `AIFINPAY_NONINTERACTIVE` | `1` makes `init` print JSON instead of prompting |
 | `AIFINPAY_MAX_GAS_POL` | Optional override of the worst-case gas per payment in POL (default 0.3); follows the gas price (see above) |
-| `AIFINPAY_GATEWAY_ORIGINS` | Optional allowlist: exact HTTPS origins the agent may pay; unset, any HTTPS site |
+| `AIFINPAY_GATEWAY_ORIGINS` | Optional allowlist: exact HTTPS origins the agent may pay; unset, only a merchant that verified the very site being fetched |
 | `AIFINPAY_GATEWAY_PATH_MODE` | Optional override: `direct` for a site running its own paywall, `gateway` for the hosted gateway; unset, inferred from the origin |
 | `AIFINPAY_MODE=dev` | Expose dev quoting with a separate dev backend |
 
