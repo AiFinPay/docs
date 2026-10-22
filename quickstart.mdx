@@ -45,11 +45,10 @@ After creating the wallet, link the agent to your account at
 balance, payments and receipts. Under **Link an agent**, **Claim via MCP**
 gives a one-time URL for the agent's `agent_claim_self` tool. The URL works
 only through that tool: opening it in a browser, or pasting it into a chat that
-has no AiFinPay MCP, links nothing. Without the MCP, or for an account with 2FA
-on, link the wallet **by signed message** and have the agent sign the
-challenge (`signDashboardClaim` in Node, `sign_dashboard_claim` in Python). Set the
-agent's working limits there under **Controls**; AiFinPay enforces them on every
-quote and receipt.
+has no AiFinPay MCP, links nothing. Without the MCP, link the wallet **by
+signed message** and have the agent sign the challenge (`signDashboardClaim`
+in Node, `sign_dashboard_claim` in Python). Set the agent's working limits
+there under **Controls**; AiFinPay enforces them on every quote and receipt.
 
 Ask the agent to inspect the target origin's `/.well-known/x402.json` and its
 API catalog. Agree on the resource, receipt scope, batch cost and separate gas
