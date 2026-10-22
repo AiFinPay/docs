@@ -31,8 +31,9 @@ Choose the runtime you use; installing MCP already includes its SDK dependency.
 Keep the persistent wallet local and verify its public address in the client.
 
 <Note>
-MCP `@aifinpay/mcp` 2.11.4 pays with `payable_fetch` once the owner enables it
-([five steps](/pay/mcp)); Node `@aifinpay/agent` 2.9.0 pays with `fetchPaid` and
+MCP `@aifinpay/mcp` 2.12.1 pays with `payable_fetch` from a persistent wallet,
+on by default within a $5 / $20-per-day ceiling ([init → fund → link → pay](/pay/mcp));
+Node `@aifinpay/agent` 2.9.0 pays with `fetchPaid` and
 Python `aifinpay-agent` 2.7.1 with `fetch_paid`. All settle AIFP-1 (splitter
 v1.4) on Polygon by default, or on Base when the owner selects it, in the native
 currency or USDC; the smallest batch is $0.10 plus gas. A quote or invoice alone
