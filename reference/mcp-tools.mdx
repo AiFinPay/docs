@@ -1,15 +1,15 @@
 ---
 title: "MCP tools reference"
-description: "The registered tools in @aifinpay/mcp 2.11.4."
+description: "The registered tools in @aifinpay/mcp 2.12.1."
 ---
 
-For **@aifinpay/mcp 2.11.4**. Use the server's `tools/list` for exact input
+For **@aifinpay/mcp 2.12.1**. Use the server's `tools/list` for exact input
 schemas in your installed version.
 
 | Tool | Purpose |
 |---|---|
 | `payment_setup_status` | Read-only checklist: wallet, payments enabled, limits, balance, `funding` amount and one `next_step` |
-| `payable_fetch` | Pay for and fetch an AIFP-1 resource (Polygon by default, or the owner-selected served network); always listed, returns the setup checklist until the owner enables payments |
+| `payable_fetch` | Pay for and fetch an AIFP-1 resource (Polygon by default, or the owner-selected served network); always listed; returns the setup checklist while the wallet is ephemeral, unfunded or payments are switched off, and without an origin allowlist pays only a merchant that verified the site being fetched |
 | `agent_address` | Read the selected wallet's public addresses |
 | `agent_claim_self` | Link the agent to its owner's dashboard with a one-time URL from My Agents |
 | `agent_reload` | Reload wallet files in the current connection; reports `payments_enabled` and, when payments are off, that env changes need a server restart |
