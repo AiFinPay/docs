@@ -29,7 +29,7 @@ AI agent ──(pays, AIFP-1)──▶ gateway.aifinpay.io/{your-slug}/... ─�
 
 | Item | Why |
 |------|-----|
-| An email address | Dashboard sign-in is a magic link — no password. |
+| An email address | For your dashboard account: email and password, or a social sign-in such as Google. |
 | A `0x` EVM address you control | Where revenue settles. One address receives on all supported EVM networks. |
 | Your API's base URL | The upstream the gateway forwards paid requests to. Must be public HTTPS. |
 | Cloudflare or nginx in front of your API | **Required.** Without it an agent calls your API directly, gets the answer and pays nothing — the paywall is bypassed by not using it. |
@@ -38,8 +38,8 @@ AI agent ──(pays, AIFP-1)──▶ gateway.aifinpay.io/{your-slug}/... ─�
 
 <Steps>
   <Step title="Sign in and create a service">
-    Go to [dash.aifinpay.io](https://dash.aifinpay.io), enter your email and
-    follow the magic link. Create a service: pick a name and paste your
+    Go to [dash.aifinpay.io](https://dash.aifinpay.io), create an account and
+    confirm your email. Create a service: pick a name and paste your
     payout wallet (`0x…`). That wallet is where every settlement lands —
     AiFinPay never custodies it.
   </Step>
