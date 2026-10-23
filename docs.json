@@ -48,6 +48,7 @@
             "pages": [
               "reference/pricing-and-limits",
               "reference/networks",
+              "reference/provider-api",
               "reference/mcp-tools",
               "ai-discovery"
             ]
