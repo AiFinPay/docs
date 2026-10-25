@@ -18,9 +18,12 @@ no repository, no approval, no contract:
 1. Create an account and a service.
 2. Give it a payout address (a standard `0x…` EVM address; settlement is on
    Polygon today).
-3. On the **Gateway** page, pick a slug and enter your upstream URL. Your paid
-   endpoint is live immediately at `https://gateway.aifinpay.io/{your-slug}/…` —
-   that is the URL you hand to agents.
+3. On **Site settings**, add a gateway: pick a slug and enter your upstream URL.
+   Your paid endpoint is `https://gateway.aifinpay.io/{your-slug}/…` — that is
+   the URL you hand to agents. It starts forwarding once the upstream's domain
+   is verified: add the TXT record `_aifp-verify.<upstream-host>` that
+   **Site settings** shows under **Domain verification**. Until then it answers
+   `403 gateway_unavailable`.
 4. Lock your origin so agents cannot bypass the paywall. **Read
    [Hosted Gateway](/charge/gateway) before you do — the rule differs for an API
    and for a site with human readers, and using the API rule on a website will

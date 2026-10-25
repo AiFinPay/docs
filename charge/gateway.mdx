@@ -46,10 +46,12 @@ AI agent ──(pays, AIFP-1)──▶ gateway.aifinpay.io/{your-slug}/... ─�
   </Step>
 
   <Step title="Configure the Gateway">
-    Open the **Gateway** page. Choose a slug (lowercase, e.g. `acme-search`)
-    and enter your upstream base URL (e.g. `https://api.acme.dev`). Save.
+    Open **Site settings** and press **Add gateway**. Choose a slug
+    (lowercase, e.g. `acme-search`), enter your upstream base URL (e.g.
+    `https://api.acme.dev`) and leave **Enable after verification** ticked.
+    Press **Review changes**, then **Apply changes**.
 
-    Your paid endpoint is live immediately:
+    Your paid endpoint is:
 
     ```text
     https://gateway.aifinpay.io/acme-search/<any-path>
@@ -57,6 +59,17 @@ AI agent ──(pays, AIFP-1)──▶ gateway.aifinpay.io/{your-slug}/... ─�
 
     Requests to it are challenged with `HTTP 402` until the agent pays;
     paid requests are forwarded to `https://api.acme.dev/<any-path>`.
+
+    It starts forwarding once you verify the upstream's domain. Until then it
+    answers `403 gateway_unavailable`, not a 402. The **Domain verification**
+    card on **Site settings** shows the TXT record to add at your DNS provider
+    (`_aifp-verify.api.acme.dev`); the **DNS connection queue** on the account
+    **Dashboard** lists it too. Add it, then press **Check DNS now**. Leave the
+    record in place: it is re-checked, and the gateway stops forwarding if it
+    disappears.
+
+    If your **Site URL** (under **Profile & keys**) is on the same host as the
+    upstream, one record verifies both.
   </Step>
 
   <Step title="Lock your origin">
