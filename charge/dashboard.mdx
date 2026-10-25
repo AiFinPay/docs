@@ -113,6 +113,24 @@ server. No bridge to deploy, no `services.json` entry to file.
     </Info>
   </Step>
 
+  <Step title="Verify your domain">
+    Agents that pay through the [AiFinPay MCP server](/pay/mcp) pay only a
+    site whose domain is verified, and only on that domain. Until then they
+    decline to pay, and nothing is signed or sent.
+
+    1. Set **Site URL** to the `https://` address agents call — when you
+       create the service, or later under **Profile & keys**.
+    2. On the account **Dashboard**, the **DNS connection queue** lists the
+       service's **Website domain**. Open it, add the TXT record it shows
+       (`_aifp-verify.<your-host>`) at your DNS provider, and press
+       **Check DNS now**. The dashboard also rechecks on its own.
+
+    Your paid URLs must be on the Site URL host, exactly: a Site URL of
+    `https://example.com` does not cover `api.example.com` or
+    `www.example.com`. An agent owner who lists your origin in
+    `AIFINPAY_GATEWAY_ORIGINS` has chosen to pay you and skips this check.
+  </Step>
+
   <Step title="Manage everything from the dashboard">
     Once your service is live, the dashboard is where you run it day to
     day:
@@ -155,7 +173,8 @@ server. No bridge to deploy, no `services.json` entry to file.
   </Card>
   <Card title="No registry entry to file" icon="list-check">
     You don't need a `services.json` PR or a redeploy to start
-    charging — create a service in the dashboard and you're live.
+    charging — create a service in the dashboard, verify your domain, and
+    you're live.
   </Card>
   <Card title="No token, no credits" icon="circle-check">
     There is nothing for you or the agent to buy, hold or trade. The protocol
