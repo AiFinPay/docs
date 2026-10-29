@@ -28,7 +28,11 @@ step, and only from a persistent wallet.
    restart. Never fund an ephemeral address.
 2. **Fund.** Send the amount `payment_setup_status` reports in `funding` (the
    smallest batch, `$0.10`, at today's rate plus the gas cap) to the wallet's
-   EVM address on Polygon.
+   EVM address on Polygon. Ask the agent "how much should I send?" and it
+   answers from this field; a request's price is the merchant's `402` for
+   that exact URL. The agent does not take prices from the merchant's website
+   plans or a web search, and asks you for the endpoint URL if it does not
+   know it.
 3. **Link.** At [dash.aifinpay.io](https://dash.aifinpay.io) → **My Agents** →
    **Claim via MCP**, generate a one-time URL and give it to the agent; it
    calls `agent_claim_self`. From then on you set the agent's working limits
