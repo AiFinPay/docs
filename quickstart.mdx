@@ -10,6 +10,12 @@ for an agent owner buying access and a merchant charging for a site or API.
 npx skills add AiFinPay/skill
 ```
 
+In Claude Code or Codex you can paste one setup prompt instead: **Copy setup
+prompt** at [aifinpay.io](https://aifinpay.io/#agent-skill). The agent installs
+the skill and the MCP server, calls `payment_setup_status` and walks you to the
+first payment, taking prices only from AiFinPay. It asks before it adds anything
+to your `AGENTS.md` or `CLAUDE.md`.
+
 ## Agent owners
 
 For an assistant with MCP support, connect `@aifinpay/mcp` using the
