@@ -60,8 +60,8 @@ dashboard account later**.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| `POST` | `/v1/quote` | none | Price a batch into a binding quote. Body: `merchant_id`, `resource`, `tier` (`standard`/`complex`/`premium`), and `requests` **or** `units`. Returns `quote_id`, `amount`, `accepted_assets`, `accepted_chains`, `pay_to`, `unit_quota`, `nonce`, `expires_at`, and a `settlement` breakdown. |
-| `POST` | `/v1/pay` | none — requires `Idempotency-Key` header | After the agent's on-chain settlement, verify it and mint the receipt. Body: `quote_id`, `chain`, `tx_ref`, optional `asset`, `agent_id`. Returns `receipt` (signed JWT), `receipt_id`, `status:"settled"`, `quota`/`unit_quota`, `expires_at`. |
+| `POST` | `/v1/quote` | none | Price a batch into a binding quote. Body: `merchant_id`, `resource`, `tier` (`standard`/`complex`/`premium`), and `requests` **or** `units`. Returns `quote_id`, `amount`, `accepted_assets`, `accepted_chains`, `pay_to`, `unit_quota`, `nonce`, `expires_at`, a `settlement` breakdown, and `fee_policy` (`id`, `route`, `treasury_bps`) — the fee terms the quote was priced under. The fee is inside the quoted price, never added on top. |
+| `POST` | `/v1/pay` | none — requires `Idempotency-Key` header | After the agent's on-chain settlement, verify it and mint the receipt. Body: `quote_id`, `chain`, `tx_ref`, optional `asset`, `agent_id`. Returns `receipt` (signed JWT), `receipt_id`, `quote_id`, `status:"settled"`, `quota`/`unit_quota`, `fee_policy`, `expires_at`, and `settlement` with the on-chain amounts and `fee_reconciliation`. |
 | `GET` | `/v1/receipt/:id` | none | Receipt status/metadata (the JWT itself is stripped). |
 | `GET` | `/v1/payments/:id` | none | Normalized payment object (`payment_id == receipt_id`): `status`, `network`, `asset`, `amount_usd`, `tx_ref`. |
 
@@ -69,6 +69,10 @@ dashboard account later**.
 
 The receipt is an **Ed25519 (EdDSA) JWT** whose `aud` is your `merchant_id` and whose
 `unit_quota` is how many requests it pays for. Verify it **locally** — no round-trip.
+
+Receipts also name the payment they were issued for: `quote_id`, `chain`, `chain_id`,
+`contract`, `tx_ref`, and on v1.4 `route_id` and `payment_id`, plus `fee_policy_id` and
+`fee_bps`. Older receipts may lack these claims; do not require them.
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
