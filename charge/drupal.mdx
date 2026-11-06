@@ -1,0 +1,109 @@
+---
+title: "Drupal module"
+description: "Get paid when AI agents read your Drupal pages. Install one module, paste a connect code, watch agent traffic, then start charging."
+---
+
+An agent that requests a protected page gets an `HTTP 402` with a price. It
+prepays a small batch of requests, the payment goes straight to your payout
+wallet, and the agent retries with a signed receipt. The module verifies the
+receipt on your server and counts the requests in your database. Readers keep
+reading for free.
+
+<CardGroup cols={2}>
+  <Card title="Packagist" icon="box" href="https://packagist.org/packages/aifinpay/drupal-connector">
+    `aifinpay/drupal-connector`
+  </Card>
+  <Card title="Source" icon="github" href="https://github.com/AiFinPay/drupal-aifinpay">
+    GPL-2.0-or-later
+  </Card>
+</CardGroup>
+
+## What you need
+
+| Item | Why |
+|------|-----|
+| Drupal 11 | The module's supported core version. |
+| PHP 8.3 or later with `ext-sodium` | The module verifies signed receipts on your server. |
+| An AiFinPay account with a site | Create one at [dash.aifinpay.io](https://dash.aifinpay.io). |
+
+## Install and connect
+
+<Steps>
+  <Step title="Install the module">
+    ```bash
+    composer require aifinpay/drupal-connector
+    drush en aifinpay
+    ```
+  </Step>
+
+  <Step title="Create a connect code">
+    In the AiFinPay dashboard open your site, then **Integrations → Drupal**,
+    and create a connect code. The same flow is under
+    **Profile & keys → API keys → Connect a CMS site**. The code works once and
+    expires after ten minutes.
+  </Step>
+
+  <Step title="Paste the code in Drupal">
+    Open **Configuration → Web services → AiFinPay**
+    (`/admin/config/services/aifinpay`), paste the code and save.
+  </Step>
+</Steps>
+
+You do not edit `settings.php`. The module exchanges the code for an API secret
+and keeps it in Drupal State on this server: never in configuration, exports or
+logs. Redeeming a code rotates the secret, so a secret used elsewhere for the
+same site stops working.
+
+## Watch agent traffic first
+
+Tick **Enable AiFinPay**, keep **Mode: Shadow**, and list the paths you want to
+charge for under **Protected paths**, one exact path or `/prefix/*` per line.
+In Shadow nothing is charged. If you opt in to **Report agent requests**, agent
+requests to those paths are counted in your dashboard.
+
+## Start charging
+
+Choose **Mode: Enforce** and **Self-hosted gate**. The form accepts this only
+when AiFinPay approves charging for the connected site:
+
+| Your AiFinPay site | Charging approved |
+|---|---|
+| Test site | Yes, testnet payments only |
+| Live site, domain of the site URL verified | Yes |
+| Live site, domain not verified | No |
+
+<Note>
+  Domain verification is a DNS TXT record on the host of your site URL. A
+  hosting provider's shared address, such as `*.acquia-sites.com`, cannot hold
+  one: point your own domain at the site and set it as the site URL.
+</Note>
+
+Agents are charged only on the host of the site URL. Requests to protected
+paths on any other host are refused with a `503`, never served free. Both the
+host and the approval come from AiFinPay, so a change in the Drupal admin form
+cannot turn charging on. The **Status** table at the top of the settings page
+shows the connected site, test or live, whether its domain is verified, the
+hosts where agents are charged, and whether charging is approved.
+
+**Serve readers free** lets requests that do not identify as an AI agent through
+without payment. An agent that sends an AiFinPay receipt or agent ID always pays.
+
+## What the module sends to AiFinPay
+
+- The connect code, once, to `POST https://api.aifinpay.io/v1/merchants/connect`.
+- In Enforce: a read of your public site record (`GET /v1/merchants/{id}`) at
+  most every five minutes, and the public receipt-signing keys
+  (`/.well-known/jwks.json`) at most every ten minutes. If AiFinPay cannot be
+  reached, the last site record is used for up to a day; after that protected
+  paths answer `503` until it is reachable again.
+- Only if you opt in: one event per agent request to a protected path (operator,
+  agent class, path pattern, time). Never the User-Agent, IP address or page
+  content.
+
+## Uninstall
+
+```bash
+drush pmu aifinpay
+```
+
+Uninstalling deletes the stored secret and the module's tables.
