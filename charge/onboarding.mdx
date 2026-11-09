@@ -16,8 +16,9 @@ Everything below is self-serve at [dash.aifinpay.io](https://dash.aifinpay.io) �
 no repository, no approval, no contract:
 
 1. Create an account and a service.
-2. Give it a payout address (a standard `0x…` EVM address; settlement is on
-   Polygon today).
+2. Give it a payout address (a standard `0x…` EVM address). A new site
+   accepts every network AiFinPay has switched on for that address; change
+   the list on **Payout → Accepted networks**.
 3. On **Site settings**, add a gateway: pick a slug and enter your upstream URL.
    Your paid endpoint is `https://gateway.aifinpay.io/{your-slug}/…` — that is
    the URL you hand to agents. It starts forwarding once the upstream's domain

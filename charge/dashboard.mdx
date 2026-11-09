@@ -11,8 +11,8 @@ server. No bridge to deploy, no `services.json` entry to file.
 
 <CardGroup cols={2}>
   <Card title="Non-custodial" icon="lock">
-    You set your own payout wallet on Polygon. Settlement lands there
-    directly — AiFinPay never takes custody of your funds.
+    You set your own payout wallets. Settlement lands there directly —
+    AiFinPay never takes custody of your funds.
   </Card>
   <Card title="Stateless verification" icon="key">
     Receipts are signed JWTs. Verify them against AiFinPay's public JWKS —
@@ -38,9 +38,16 @@ server. No bridge to deploy, no `services.json` entry to file.
     In the dashboard, create a service with:
 
     - **A service name** — how agents and the dashboard identify it.
-    - **A payout wallet** — a public `0x…` address on **Polygon**.
-      Settlement lands here non-custodially; AiFinPay never holds your
-      funds.
+    - **A payout wallet** — a public `0x…` address. One EVM address
+      receives on every EVM network; Solana, Aptos and NEAR each take
+      their own address. Settlement lands here non-custodially; AiFinPay
+      never holds your funds.
+
+    A new site accepts every network AiFinPay has switched on for which it
+    has a payout address. Use wallets you control on every one of those
+    networks, not an exchange deposit address. A Safe is used only on the
+    networks where it is deployed. To narrow the list, open **Payout →
+    Accepted networks** and untick the networks you don't want.
 
     On creation you receive:
 
