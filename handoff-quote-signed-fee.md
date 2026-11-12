@@ -35,7 +35,7 @@ payStableSigned(
 - Replay guard: mark `orderId` used (mapping) so a signed quote can't be reused.
 - Split: `treasuryFee = amount*feeBps/10000` (floor); `ipCreatorFee` = keep the existing 1 bp creator OR make it a second signed field `ipBps` (preferred — covers fee-spec #6 configurable creator pointer); `merchantAmount = amount - treasuryFee - ipCreatorFee` (remainder to merchant, same as today).
 - Emit the SAME `Payment` event you emit now (payer, merchant, token, totalAmount, merchantAmount, treasuryAmount, ipCreatorAmount, orderId) so our verifier reads both paths identically.
-- Keep the existing `payStable` (flat 1%) as the fallback for agents that don't fetch a signed quote.
+- Keep the existing `payStable` (fixed rate) as the fallback for agents that don't fetch a signed quote.
 
 ### Solana (Anchor — new instruction, same idea)
 
@@ -54,7 +54,7 @@ payStableSigned(
 
 ## Backend side (we do this)
 - Quoter service signs `(…, feeBps, expiry)` per quote; `feeBps` comes from the active
-  schedule (flat 1% now; later cap / size / volume tiers — all off-chain).
+  schedule (all off-chain).
 - `/v1/pay` verifier: for the signed path, read `feeBps` from the event and check it
   matches the quote; everything else identical to today.
 

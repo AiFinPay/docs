@@ -30,8 +30,9 @@ today (POL / USDC / USDT); your payout wallet is a Polygon `0x…` address.
 4. You **track** revenue via the merchant feeds or a `receipt.settled` webhook.
 
 Canonical AIFP-1 economics are gross-inclusive: the payer total equals the
-quoted gross amount, the merchant receives 99%, AiFinPay receives 1%, and
-creator/referral receives 0%. The fee is not added on top. See
+quoted gross amount. A protocol fee is included in the quoted price, and
+creator/referral receives 0%. Each quote and the on-chain transaction show the
+exact split between the merchant and the protocol. The fee is not added on top. See
 [Pricing, units and limits](/reference/pricing-and-limits).
 
 ## Register &amp; manage

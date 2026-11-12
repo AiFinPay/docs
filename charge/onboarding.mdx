@@ -172,12 +172,14 @@ route:
 
 ```text
 payer total = quoted gross
-                     ├──── 99% ────▶ merchant wallet
-                     ├────  1% ────▶ AiFinPay treasury
-                     └────  0% ────▶ creator/referral
+                     ├──── merchant amount ────▶ merchant wallet
+                     ├──── protocol fee ───────▶ AiFinPay treasury
+                     └──── 0 ──────────────────▶ creator/referral
 ```
 
-The fee is not added on top. AIFP-2/x402 is a separate route with a current 0%
+A protocol fee is included in the quoted price; it is not added on top. Each
+quote and the on-chain transaction show the exact split between the merchant
+and the protocol. AIFP-2/x402 is a separate route with a current 0%
 AiFinPay protocol fee; the provider receives 100% and network gas is separate.
 
 A contract address or historical transaction is not sufficient readiness
@@ -227,7 +229,7 @@ Once merged and redeployed, agents discover you through:
 - The merchant lookup at `/api/partner/:wallet`
 - Automatic selection via `/api/registry/best`
 
-## What you get for the 1% fee
+## What you get for the protocol fee
 
 <CardGroup cols={2}>
   <Card title="Pre-built SDKs" icon="cube">
