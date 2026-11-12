@@ -75,6 +75,14 @@ The package has two halves with different credentials, on purpose:
 - **`AifpMerchant`** — the management client. Holds your `msec_…` secret and
   can register routes and prices.
 
+`createGateReporter` also takes the secret. Pass its `onEvent` to the gate and
+it sends each `402` the gate answered and each agent request it let through,
+with the AI company that made it, to the dashboard's **Agent traffic** report.
+Without it that report stays empty. Use `onEvent`, not the gate's `reporting`
+option: a gate takes one of the two, and only `onEvent` fills Agent traffic.
+The reporter queues in memory and sends in batches; an outage loses report
+rows, never access.
+
 What the gate does per request: no receipt → answer `HTTP 402` with
 machine-readable payment instructions; valid receipt → verify the Ed25519
 signature locally, atomically meter the prepaid quota down in the configured
@@ -102,7 +110,9 @@ Routes are code — they change in pull requests, and prices deploy with them.
 
 ```ts
 import express from "express";
-import { AifpMerchant, ResourceRegistry, aifpGate } from "@aifinpay/gate";
+import {
+  AifpMerchant, ResourceRegistry, aifpGate, createGateReporter,
+} from "@aifinpay/gate";
 
 // env: AIFP_MERCHANT_ID=mrch_…  AIFP_MERCHANT_SECRET=msec_…
 const merchant = new AifpMerchant();
@@ -115,11 +125,24 @@ await merchant.ensureResources([
 
 const registry = new ResourceRegistry({ merchant });
 await registry.start(); // load the initial snapshot before serving
+const reporter = createGateReporter({
+  merchantId: merchant.merchantId,
+  merchantSecret: process.env.AIFP_MERCHANT_SECRET!,
+});
 
 const app = express();
-app.use("/api", aifpGate({ merchantId: merchant.merchantId, registry }));
+app.use("/api", aifpGate({
+  merchantId: merchant.merchantId,
+  registry,
+  onEvent: reporter.onEvent,
+}));
 app.get("/api/search", (req, res) => res.json({ results: [] }));
-app.listen(3000);
+const server = app.listen(3000);
+
+process.on("SIGTERM", () => server.close(async () => {
+  await reporter.close(); // sends the last batch
+  process.exit(0);
+}));
 ```
 
 ### How a request's price is resolved
@@ -148,7 +171,15 @@ without a redeploy.
 const merchant = new AifpMerchant();
 const registry = new ResourceRegistry({ merchant });
 await registry.start();
-app.use("/api", aifpGate({ merchantId: merchant.merchantId, registry }));
+const reporter = createGateReporter({
+  merchantId: merchant.merchantId,
+  merchantSecret: process.env.AIFP_MERCHANT_SECRET!,
+});
+app.use("/api", aifpGate({
+  merchantId: merchant.merchantId,
+  registry,
+  onEvent: reporter.onEvent,
+}));
 ```
 
 ### Fastify (or any framework)
@@ -157,14 +188,25 @@ The core is framework-agnostic — an adapter is ~15 lines:
 
 ```ts
 import Fastify from "fastify";
-import { AifpMerchant, ResourceRegistry, createGate } from "@aifinpay/gate";
+import {
+  AifpMerchant, ResourceRegistry, createGate, createGateReporter,
+} from "@aifinpay/gate";
 
 const merchant = new AifpMerchant();
 const registry = new ResourceRegistry({ merchant });
 await registry.start();
-const gate = createGate({ merchantId: merchant.merchantId, registry });
+const reporter = createGateReporter({
+  merchantId: merchant.merchantId,
+  merchantSecret: process.env.AIFP_MERCHANT_SECRET!,
+});
+const gate = createGate({
+  merchantId: merchant.merchantId,
+  registry,
+  onEvent: reporter.onEvent,
+});
 
 const app = Fastify();
+app.addHook("onClose", () => reporter.close());
 app.addHook("onRequest", async (req, reply) => {
   if (!req.url.startsWith("/api/")) return;
   const result = await gate({

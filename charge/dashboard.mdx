@@ -74,15 +74,32 @@ server. No bridge to deploy, no `services.json` entry to file.
     ```
 
     ```ts
-    import { AifpMerchant, ResourceRegistry, aifpGate } from "@aifinpay/gate";
+    import {
+      AifpMerchant, ResourceRegistry, aifpGate, createGateReporter,
+    } from "@aifinpay/gate";
 
     // env: AIFP_MERCHANT_ID=mrch_…  AIFP_MERCHANT_SECRET=msec_…
     const merchant = new AifpMerchant();
     const registry = new ResourceRegistry({ merchant });
     await registry.start();
+    const reporter = createGateReporter({
+      merchantId: merchant.merchantId,
+      merchantSecret: process.env.AIFP_MERCHANT_SECRET!,
+    });
 
-    app.use("/api", aifpGate({ merchantId: merchant.merchantId, registry }));
+    app.use("/api", aifpGate({
+      merchantId: merchant.merchantId,
+      registry,
+      onEvent: reporter.onEvent,
+    }));
     ```
+
+    The reporter sends each `402` the gate answered and each agent request
+    it let through, with the AI company that made it, to the dashboard's
+    **Agent traffic** report. Without it that report stays empty. It
+    queues in memory and sends in batches, so it adds no call on the hot
+    path. In your shutdown handler, after the server stops taking
+    requests, run `await reporter.close()` to send the last batch.
 
     Routes and prices come from the registry you edit in the Paywall
     Builder — or declare them in code with `ensureResources`. Both write
