@@ -6,7 +6,7 @@
 
 **Jira source of truth:** AIFINP-122
 
-This document defines the current fee model for AiFinPay payment routes. It supersedes older examples that used a fee-bearing AIFP-2/x402 route or a `100/1` merchant split.
+This document defines the current fee model for AiFinPay payment routes. It supersedes older examples that used a fee-bearing AIFP-2/x402 route, a merchant split with a creator leg, or a single fixed AIFP-1 fee.
 
 ## AIFP-2 — x402 / agent payments
 
@@ -23,30 +23,30 @@ AIFP-2 routing must fail closed if the selected payment target is fee-bearing.
 
 ## AIFP-1 — merchant AI-traffic monetization
 
-AiFinPay charges **exactly 1% protocol fee** on successful AIFP-1 merchant monetization transactions.
+AiFinPay charges a protocol fee on successful AIFP-1 merchant monetization transactions. The fee is set per merchant.
 
-- `treasuryBps = 100`
-- `creatorBps = 0`
-- AiFinPay treasury: 1%
-- merchant: 99% before external network/settlement costs
-- creator fee: 0%
+- A protocol fee is included in the quoted price; it is never added on top.
+- Each quote carries the fee terms it was priced under (`fee_policy`, with `treasury_bps`).
+- Each quote and the on-chain transaction show the exact split between the merchant and the protocol.
+- merchant: the quoted gross minus the protocol fee, before external network/settlement costs
+- `creatorBps = 0`, creator fee: 0%
 
 There is no additional `0.01%` creator leg in the canonical AIFP-1 profile.
 
-## 5% contract cap
+## Contract fee cap
 
-A contract may enforce a combined fee cap of **5%** as a security guardrail. The cap limits owner/configuration authority; it is **not** a business fee, default fee, target rate, or permission for a production route to charge 5%.
+A contract may enforce a hard cap on the combined fee as a security guardrail. The cap limits owner/configuration authority; it is **not** a business fee, default fee, target rate, or permission for a production route to charge up to the cap.
 
-Canonical production profiles remain:
+Canonical production profiles:
 
 | Route | Treasury BPS | Creator BPS | AiFinPay fee |
 |---|---:|---:|---:|
 | AIFP-2 / x402 | 0 | 0 | 0% |
-| AIFP-1 merchant monetization | 100 | 0 | 1% |
+| AIFP-1 merchant monetization | per merchant, in the quote's `fee_policy` | 0 | included in the quoted price |
 
 ## Legacy deployments
 
-Existing v1.1/v1.2 or other deployments with `100/1` or other fee-bearing splits may be retained in deployment evidence for auditability. They are **legacy historical state**, not the target economics.
+Existing v1.1/v1.2 or other deployments with a creator leg or other fee-bearing splits may be retained in deployment evidence for auditability. They are **legacy historical state**, not the target economics.
 
 They must not be selected for new AIFP-2 traffic.
 
@@ -68,7 +68,7 @@ Required invariants:
 No public SDK/package release, registry activation or new network payment route should be described as compliant with the current model until it proves:
 
 - AIFP-2: exact provider/merchant amount, AiFinPay fee 0, creator fee 0;
-- AIFP-1: merchant 99%, AiFinPay treasury 1%, creator fee 0;
+- AIFP-1: merchant amount and AiFinPay fee equal the split in the quote, creator fee 0;
 - replay/idempotency protection;
 - route isolation;
 - reconciliation records that match the selected product route.

@@ -11,10 +11,12 @@ tree must not be presented as a live payment rail.
 
 | Route | Settlement semantics | AiFinPay fee | Creator fee |
 |---|---|---:|---:|
-| AIFP-1 | gross-inclusive; merchant 99% | 1% | 0% |
+| AIFP-1 | gross-inclusive; merchant receives the rest | set per merchant, in each quote | 0% |
 | AIFP-2 / x402 | provider receives 100% | 0% | 0% |
 
-Network gas is separate in both routes.
+A protocol fee is included in the AIFP-1 quoted price. Each quote and the
+on-chain transaction show the exact split between the merchant and the
+protocol. Network gas is separate in both routes.
 
 ## Readiness states
 

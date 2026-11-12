@@ -10,14 +10,16 @@ or contract disagrees with it, that component is not release-compatible.
 
 | Route | Payer total | Merchant/provider | AiFinPay | Creator/referral | Network gas |
 |---|---:|---:|---:|---:|---|
-| **AIFP-1** | exact quoted gross | 99% | 1% | 0% | separate |
+| **AIFP-1** | exact quoted gross | the rest | set per merchant, in each quote | 0% | separate |
 | **AIFP-2 / x402** | provider price | 100% | 0% | 0% | separate |
 
-AIFP-1 is **gross-inclusive**. The protocol fee is deducted from the quoted
-gross amount; it is never added on top. AIFP-2/x402 has a temporary 0% AiFinPay
-protocol fee for the current launch period. No expiry is encoded yet, so a later
-change requires a versioned economic decision and coordinated backend/SDK/docs
-release.
+AIFP-1 is **gross-inclusive**. A protocol fee is included in the quoted price;
+it is never added on top. Each quote and the on-chain transaction show the
+exact split between the merchant and the protocol.
+
+AIFP-2/x402 has a temporary 0% AiFinPay protocol fee for the current launch
+period. No expiry is encoded yet, so a later change requires a versioned
+economic decision and coordinated backend/SDK/docs release.
 
 ## AIFP-1 reference tiers
 
@@ -29,19 +31,14 @@ One billing unit is **$0.0005**.
 | `complex` | 4 | $0.002 |
 | `premium` | 10 | $0.005 |
 
-## Exact 6-decimal vectors
+## Exact integer split
 
-Stablecoin math is integer math. The current regression vectors are:
-
-| Gross units | Merchant | AiFinPay | Creator | Conservation |
-|---:|---:|---:|---:|---:|
-| 500 | 495 | 5 | 0 | 500 |
-| 2,000 | 1,980 | 20 | 0 | 2,000 |
-| 5,000 | 4,950 | 50 | 0 | 5,000 |
-
-The protocol fee is `floor(gross × 100 / 10,000)`; merchant receives the
-remainder and creator receives zero. An amount too small to produce a non-zero
-AIFP-1 protocol fee must be rejected rather than silently changing economics.
+Stablecoin math is integer math. The AiFinPay fee is
+`floor(gross × treasury_bps / 10,000)`, with `treasury_bps` taken from the
+quote's `fee_policy`; the merchant receives the remainder and the creator
+receives zero, so the three legs always add up to the quoted gross. An amount
+too small to produce a non-zero AIFP-1 protocol fee must be rejected rather
+than silently changing economics.
 
 ## Batches and receipts
 
@@ -70,7 +67,7 @@ Before signing, the release must independently pin and verify:
 
 1. route class and chain ID;
 2. B2BSplitter v1.3 address and exact runtime code hash;
-3. on-chain BPS profile (AIFP-1 `100/0`, AIFP-2 `0/0`);
+3. on-chain BPS profile matching the quote's `fee_policy` (AIFP-2 `0/0`);
 4. merchant/provider target and asset metadata;
 5. quote expiry and exact gross calldata;
 6. paid end-to-end evidence for that release;
