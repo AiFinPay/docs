@@ -36,6 +36,7 @@
             "group": "Charge for your API",
             "pages": [
               "integration",
+              "charge/wordpress",
               "charge/drupal",
               "charge/gateway",
               "charge/dashboard",
