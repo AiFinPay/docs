@@ -117,11 +117,11 @@ The gateway adds an **origin secret** to every request it forwards:
 AIFP-Proxy-Auth: <your-origin-secret>
 ```
 
-The dashboard shows the secret once, already inside the rule: **Connect your
-site → Close free access → Show secret**, or **Rotate secret** on the **Origin
-Lock** card. Copy the rule from there. Showing the secret creates a new one and
-replaces the old one, so a rule that holds the old secret refuses the gateway
-until you paste the new rule.
+You do not copy the secret by hand. **Connect your site → Close free access →
+Create my rule** (or **Create my rule** / **Create a new rule** on the **Origin
+Lock** card) makes the secret and shows the finished rule with it inside, once.
+Copy that rule. Making a new rule replaces the old secret, so an older rule
+refuses the gateway until you paste the new one.
 
 In the rules below `<your-origin-secret>` stands for that secret. A rule saved
 with those words in it refuses every paid request; **Check now** tells you when
@@ -226,7 +226,7 @@ saw:
 |---|---|---|
 | An AI agent without the secret still gets your pages | The request without the secret was not refused | Add the rule, or check that it is deployed and set to Block |
 | The rule also stops the paid address | Both requests were refused | The rule holds another secret, or Bot Fight Mode stops the gateway |
-| The rule in your site's settings still contains `<your-origin-secret>` | Both were refused, and the placeholder itself was let through | Show the secret and paste the new rule over the old one |
+| The rule in your site's settings still contains `<your-origin-secret>` | Both were refused, and the placeholder itself was let through | Press **Create my rule** and paste it over the old one |
 | Your site still refuses GPTBot after they pay | The lock works, but a request with the secret and a crawler's user agent was refused | Allow AI crawlers in Cloudflare's own settings, above |
 | Your site redirects to another address | A redirect instead of a page | Save the address people end up on, for example with `www` |
 | Your site answered with a server error | A `5xx` answer | Check that the site is up |
