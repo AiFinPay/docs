@@ -87,9 +87,22 @@ printed.
 
 The working limits live in the dashboard. Once the agent is linked (step 3),
 open **My Agents** → the agent → **Controls** and set the per-payment cap, the
-daily cap, a merchant allowlist, an expiry, or pause it. AiFinPay enforces
-these on every quote and payment for that agent, immediately — no env change,
-no server restart. The agent sees them in `payment_setup_status` → `dashboard`.
+daily cap, an expiry, the sites it may pay, or pause it. Under **Sites this
+agent can pay**, choose **Any site** or **Only these sites** and add sites by
+name or address; only sites whose owner proved the address with AiFinPay are
+offered, and an empty list means the agent cannot pay any site. With **Any
+site**, an agent on this MCP still pays only sites that proved their address
+(see below). AiFinPay enforces these on every quote and payment for that agent,
+immediately — no env change, no server restart. The agent sees them in
+`payment_setup_status` → `dashboard`.
+
+A change that lets the agent spend more — resuming payments, raising or
+removing a cap, allowing another site or any site, a later expiry or none —
+asks you to confirm it is you first, as changing a payout wallet does: your
+password, a code from your authenticator app, or a code emailed to you.
+Removing the agent from your account asks the same, because the next account
+it links itself to sets its rules. Pausing, lowering a cap, removing a site and
+an earlier expiry are saved at once.
 
 Underneath, the client keeps a local ceiling it refuses to sign above: **$5 per
 payment and $20 per rolling 24 hours**, with gas capped at 0.3 POL on Polygon.
@@ -124,6 +137,14 @@ Setting `AIFINPAY_GATEWAY_ORIGINS` to exact HTTPS origins replaces this check
 with your own allowlist. `AIFINPAY_PAYMENTS_ENABLED=0` switches payments off
 entirely.
 
+The dashboard shows these local settings too, read-only, under **Controls** →
+**Set on the agent's computer**. From MCP 2.17.0 a linked agent reports its
+MCP version, whether payments are on, its `AIFINPAY_GATEWAY_ORIGINS` list, its
+per-payment and daily limits, and the network and asset it pays with, signed by
+its own key: `payment_setup_status` sends it, and `agent_claim_self` after
+linking. It never sends keys, the passphrase or file paths. To change these,
+edit the server's `env` on the agent's computer and restart the server.
+
 `AIFINPAY_MAX_GAS_POL` caps the worst-case fee, not the fee you expect to pay.
 Before signing, the client prices the estimated gas plus 20% at the maximum fee
 per gas the RPC quotes and refuses with `V14_GAS_BUDGET_EXCEEDED` above the cap.
@@ -154,7 +175,7 @@ links itself with `agent_claim_self`. Pass the URL to the tool: opened in a
 browser, or pasted into a chat without the AiFinPay MCP, it links nothing. You
 then see the agent's balance, payments and receipts,
 and set its working limits under **Controls**: per-payment and daily caps,
-pause, merchant allowlist and expiry. AiFinPay enforces them on every quote and
+pause, the sites it may pay and expiry. AiFinPay enforces them on every quote and
 receipt for that agent, and the agent reads them back in
 `payment_setup_status` → `dashboard` (a read signed by its own key; it cannot
 change them).
