@@ -1,0 +1,197 @@
+---
+title: "WordPress plugin"
+description: "Get paid when AI agents read your WordPress site. Upload one plugin, see which agents come, paste a connect code, then start charging."
+---
+
+An AI agent that asks for a protected page gets a price instead of the page
+(an `HTTP 402`). It prepays a small batch of requests, the payment goes to the
+payout wallet of your AiFinPay account, and the agent asks again with a signed
+receipt. The plugin checks the receipt on your server and counts the requests
+in your WordPress database. Readers keep reading for free.
+
+<CardGroup cols={2}>
+  <Card title="Download" icon="download" href="https://github.com/AiFinPay/wordpress-aifinpay/releases/latest">
+    The plugin zip from the latest release
+  </Card>
+  <Card title="Source" icon="github" href="https://github.com/AiFinPay/wordpress-aifinpay">
+    GPL-2.0-or-later
+  </Card>
+</CardGroup>
+
+## What you need
+
+| Item | Why |
+|------|-----|
+| WordPress 6.5 or later | The oldest version the plugin supports. |
+| PHP 8.1 or later | The oldest PHP version the plugin runs on. |
+| A permalink structure other than **Plain** | Only to charge: with Plain links the plugin cannot tell your pages apart. |
+| An AiFinPay account with a site | Only to report to AiFinPay or to charge. Create one at [dash.aifinpay.io](https://dash.aifinpay.io). |
+
+## Install
+
+<Steps>
+  <Step title="Download the plugin">
+    Open the [latest release](https://github.com/AiFinPay/wordpress-aifinpay/releases/latest)
+    and under **Assets** download the zip file whose name starts with
+    `aifinpay-`.
+  </Step>
+
+  <Step title="Upload it to WordPress">
+    In your WordPress admin open **Plugins → Add Plugin → Upload Plugin**,
+    choose the zip and click **Install Now**.
+  </Step>
+
+  <Step title="Activate it">
+    Click **Activate Plugin**. Its page is **Settings → AiFinPay**.
+  </Step>
+</Steps>
+
+## See which agents come
+
+Right after activation the plugin is in **Shadow** mode and watches the whole
+site: **Protected paths** holds `/*`. It counts the requests of AI agents that
+say who they are (GPTBot, ClaudeBot, PerplexityBot and others) and shows them
+per operator, the company behind the agent, under **Agent traffic, last 30
+days** on **Settings → AiFinPay**. In Shadow nothing is charged or blocked.
+Until you connect the site, nothing is sent anywhere and you do not need an
+AiFinPay account.
+
+With `/*` your page cache keeps working as before, so an agent that the cache
+answers is not counted; the **Status** table says so when it finds a cache.
+For exact counts, list the paths you care about instead: a path you list by
+name is never served from the page cache.
+
+## Connect to AiFinPay
+
+Connect the site when you want to see agent traffic in your dashboard or to
+charge.
+
+<Steps>
+  <Step title="Create a connect code">
+    In the AiFinPay dashboard, with your site selected, open
+    **Profile & keys → API keys** and click **Connect a CMS site**. Confirm it
+    is you, then click **Create connect code**. The code works once and expires
+    after ten minutes.
+  </Step>
+
+  <Step title="Paste the code in WordPress">
+    Open **Settings → AiFinPay**, paste the code into **Connect code** and click
+    **Save Changes**. The **Status** table now shows your site.
+  </Step>
+
+  <Step title="Report to AiFinPay (optional)">
+    Tick **Report to AiFinPay** and save to see agent requests in your
+    dashboard.
+  </Step>
+</Steps>
+
+The plugin swaps the code for an API secret and keeps it in the WordPress
+database of this site. The secret is never shown again, written to a log or
+sent to a browser. Connecting makes a new secret, so a secret used elsewhere for
+the same site stops working. **Disconnect this site** deletes the secret and
+turns charging off.
+
+## Start charging
+
+<Steps>
+  <Step title="List what you charge for">
+    Under **Protected paths** replace `/*` with the paths you want to charge
+    for, one exact path or `/prefix/*` per line. Enforce does not accept `/*`:
+    a protected path is not served from the page cache, so `/*` would turn the
+    cache off for your whole site.
+  </Step>
+
+  <Step title="Choose a price">
+    Pick a **Price per request**: Standard, Complex or Premium. The list shows
+    the price of each.
+  </Step>
+
+  <Step title="Switch to Enforce">
+    Choose **Mode: Enforce** and save. If something is missing, the plugin stays
+    in its current mode and says what to fix.
+  </Step>
+</Steps>
+
+The plugin accepts Enforce only when AiFinPay approves charging for the
+connected site:
+
+| Your AiFinPay site | Charging approved |
+|---|---|
+| Test site | Yes, testnet payments only |
+| Live site, domain of the site URL verified | Yes |
+| Live site, domain not verified | No |
+
+Your WordPress address must also have the same host name as the site URL set
+in the dashboard. Agents are charged only on that host. Both the host and the
+approval come from AiFinPay, so a change in the WordPress admin cannot turn
+charging on. The **Status** table shows the connected site, test or live, its
+site URL and whether the domain is verified, the host where agents are charged,
+and whether charging is approved.
+
+<Note>
+  Domain verification is a DNS TXT record on the host of your site URL. You add
+  it once at your DNS provider; the dashboard shows the record to add.
+</Note>
+
+Two more options, both on by default:
+
+- **REST API and feed**: in Enforce, AI agents also pay on the WordPress REST
+  content routes and the main feed, where the same posts can be read. Without
+  it an agent could skip the payment.
+- **Agent documents**: the plugin serves `/llms.txt` and
+  `/.well-known/x402.json`, which tell agents how to pay, and points to them
+  from every page. A real file with the same name on your server wins.
+
+**Readers never pay.** A browser and a logged-in user are served as usual. An
+agent that sends an AiFinPay receipt or agent ID always pays.
+
+The plugin works with WP Rocket, W3 Total Cache, WP Super Cache, LiteSpeed
+Cache and Cloudflare APO, and clears their cache when you change the mode or the
+paths.
+
+If AiFinPay cannot be reached, readers are not affected. In Enforce the last
+site record is used for up to a day. After that, and whenever the receipt keys
+cannot be read, AI agents on protected paths get a `503`: they never get the
+page for free.
+
+## What it cannot do
+
+- It goes by what a visitor says it is. A scraper that pretends to be a browser
+  counts as a reader and reads for free.
+- Files in `wp-content/uploads` are served by your web server without
+  WordPress, so they cannot be protected.
+- A protected path covers that address only. If your home page, an archive or a
+  search result shows the full text of a protected post, that text is readable
+  there too. Show excerpts on those pages, or protect them as well.
+- Dashboard rules per operator (allow, charge, block) are not applied yet.
+
+## What the plugin sends to AiFinPay
+
+In Shadow without a connection the plugin contacts nothing. Once connected, it
+talks to `https://api.aifinpay.io`:
+
+- **Connect**: the connect code, when you save it, to
+  `POST /v1/merchants/connect`. The answer is your merchant ID and API secret.
+- **Site record**: a read of your site's public record from
+  `GET /v1/merchants/{id}` when you open the settings page, in Enforce, and in
+  Shadow when an agent shows a receipt, at most every five minutes. It sends no
+  site data.
+- **Receipt keys**: when an agent shows a receipt, the public signing keys from
+  `/.well-known/jwks.json`, at most every ten minutes, in Shadow too (Shadow
+  checks the receipt and spends nothing). It sends no site data.
+- **Paths**: when you save settings with reporting or Enforce on, your protected
+  paths and price tier, to `POST /v1/merchants/{id}/resources`.
+- **Agent requests, only if you tick Report to AiFinPay**: for each AI-agent
+  request to a protected path, the operator, agent class, path pattern and time,
+  to `POST /v1/merchants/{id}/gate-events`. Never the User-Agent, IP address,
+  full URL or page content. Readers are not reported.
+
+The pages the plugin serves to agents (the `402` answer and `/llms.txt`) name
+further AiFinPay addresses for the agent to use. Your server does not contact
+them.
+
+## Uninstall
+
+In WordPress open **Plugins**, click **Deactivate** under AiFinPay, then
+**Delete**. Deleting removes the stored secret, the plugin's settings, its
+tables and its scheduled tasks.

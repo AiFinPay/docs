@@ -1,9 +1,9 @@
 ---
 title: "MCP tools reference"
-description: "The registered tools in @aifinpay/mcp 2.12.1."
+description: "The registered tools in @aifinpay/mcp 2.16.3."
 ---
 
-For **@aifinpay/mcp 2.12.1**. Use the server's `tools/list` for exact input
+For **@aifinpay/mcp 2.16.3**. Use the server's `tools/list` for exact input
 schemas in your installed version.
 
 | Tool | Purpose |
@@ -29,7 +29,11 @@ challenge for the agent's own address. `agent_reload` changes the in-process
 wallet selection; it does not transfer funds.
 
 The server also exposes the Markdown resource `aifinpay://skill`. Read it for
-wallet selection and the current workflow.
+wallet selection and the current workflow. At connect it sends the client short
+instructions: prices and funding amounts come from AiFinPay
+(`payment_setup_status` → `funding`, and the `402` of the exact URL), never
+from the merchant's website or a web search; if the endpoint URL is unknown,
+ask the user for it.
 
 ## Tools not registered
 

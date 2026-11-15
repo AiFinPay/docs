@@ -7,7 +7,7 @@ description: "Set up a persistent agent wallet, pay within a built-in ceiling, a
 [the payer skill](/skills) first so the assistant knows the workflow.
 
 <Note>
-This page describes **@aifinpay/mcp 2.12.1**. Payments are on from the first
+This page describes **@aifinpay/mcp 2.16.3**. Payments are on from the first
 start, within a built-in ceiling of **$5 per payment and $20 per 24 hours**;
 nothing in the MCP client config has to change to pay. `payable_fetch` signs
 only with a persistent wallet, so an unfunded fresh install spends nothing.
@@ -114,8 +114,12 @@ Without `AIFINPAY_GATEWAY_ORIGINS`, the agent pays only a merchant that has
 verified its site with AiFinPay, and only on that very site: before signing,
 `payable_fetch` looks up the merchant the AiFinPay quote names and refuses
 unless the site is DNS-verified and its host is the host being fetched (on the
-hosted gateway, verification alone). A refusal signs and sends nothing. The
-money goes only to that merchant, never to an address a `402` claims.
+hosted gateway, verification alone). A refusal signs and sends nothing and
+tells the agent not to try another way to pay. When the merchant has not
+verified the site, it names the two fixes: the merchant verifies its domain with
+AiFinPay, or, if you know and trust the site, you add its origin to
+`AIFINPAY_GATEWAY_ORIGINS` and restart the client. The money goes only to that
+merchant, never to an address a `402` claims.
 Setting `AIFINPAY_GATEWAY_ORIGINS` to exact HTTPS origins replaces this check
 with your own allowlist. `AIFINPAY_PAYMENTS_ENABLED=0` switches payments off
 entirely.
@@ -128,7 +132,9 @@ so it needs roughly twice the gas of a POL payment.
 
 Payments settle AIFP-1 (splitter v1.4) on Polygon by default. To pay on Base,
 set `AIFINPAY_PAY_CHAIN=base` with `AIFINPAY_MAX_GAS` in ETH; the merchant must
-accept Base too. Where AiFinPay accepts payments right now is the `networks`
+accept Base too. On Arc the payment and the gas are both USDC. BOT Chain has no
+native payment: set `AIFINPAY_PAY_ASSET` to a stablecoin pinned for it, and BOT
+pays only the gas. Where AiFinPay accepts payments right now is the `networks`
 field of [x402.json](https://api.aifinpay.io/.well-known/x402.json).
 
 `payable_fetch` checks the native/USD rate independently of the quote: the
@@ -180,12 +186,12 @@ mean every host automatically loads every resource.
 | `AIFINPAY_PAYMENTS_ENABLED` | Optional override. Unset or `1`: payments on (default); `0`: `payable_fetch` signs nothing and returns the setup checklist |
 | `AIFINPAY_MAX_USD` / `AIFINPAY_DAILY_USD` | Optional override that lowers the ceiling the client checks before signing (default $5 per payment, $20 per 24h; a higher value is refused) |
 | `AIFINPAY_PAY_CHAIN` / `AIFINPAY_MAX_GAS` | Pay on another served network (e.g. `base`) with a gas cap in its native currency |
-| `AIFINPAY_PAY_ASSET` | `USDC` to pay in USDC instead of the native currency |
+| `AIFINPAY_PAY_ASSET` | `USDC` to pay in USDC instead of the native currency; required on BOT Chain |
 | `AIFINPAY_NONINTERACTIVE` | `1` makes `init` print JSON instead of prompting |
 | `AIFINPAY_MAX_GAS_POL` | Optional override of the worst-case gas per payment in POL (default 0.3); follows the gas price (see above) |
 | `AIFINPAY_GATEWAY_ORIGINS` | Optional allowlist: exact HTTPS origins the agent may pay; unset, only a merchant that verified the very site being fetched |
 | `AIFINPAY_GATEWAY_PATH_MODE` | Optional override: `direct` for a site running its own paywall, `gateway` for the hosted gateway; unset, inferred from the origin |
-| `AIFINPAY_MODE=dev` | Expose dev quoting with a separate dev backend |
+| `AIFINPAY_MODE=dev` | Expose dev quoting with a separate dev backend. The client pays on an EVM testnet (`arctestnet`) only in dev mode, and on an EVM mainnet only outside it |
 
 Wallet selection is: `SEED_HASH`, project agents file, legacy
 `AIFINPAY_AGENT_SECRET`, then the local keystore. Invalid or ambiguous
