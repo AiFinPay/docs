@@ -48,7 +48,8 @@ AI agent ──(pays, AIFP-1)──▶ gateway.aifinpay.io/{your-slug}/... ─�
   <Step title="Configure the Gateway">
     Open **Site settings** and press **Add gateway**. Choose a slug
     (lowercase, e.g. `acme-search`), enter your upstream base URL (e.g.
-    `https://api.acme.dev`) and leave **Enable after verification** ticked.
+    `https://api.acme.dev`) and leave **Paid address on** ticked: when it is off,
+    every agent is refused.
     Press **Review changes**, then **Apply changes**.
 
     Your paid endpoint is:
@@ -67,6 +68,14 @@ AI agent ──(pays, AIFP-1)──▶ gateway.aifinpay.io/{your-slug}/... ─�
     **Dashboard** lists it too. Add it, then press **Check now**. Leave the
     record in place: it is re-checked, and the gateway stops forwarding if it
     disappears.
+
+    While the paid address refuses agents, step 4 of **Connect your site**
+    says why, one line per reason, with the fix on the same line: **Turn on**
+    for an address that is switched off, **Update the paid address** when the
+    site's payout network or wallets changed after the gateway was saved (the
+    gateway keeps the networks it was saved with, and agents are refused until
+    they match), and **Check again** for the DNS record. On a test site it
+    also says that only agents paying on test networks can pay it.
 
     If your **Site URL** (under **Profile & keys**) is on the same host as the
     upstream, one record verifies both.
