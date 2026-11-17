@@ -1,30 +1,19 @@
 ---
 title: "Python quickstart"
-description: "Agent identity and dashboard linking in Python with aifinpay-agent. Python does not pay AIFP-1 merchants yet — use MCP or Node for payments."
+description: "Pay AiFinPay merchants from Python with aifinpay-agent: fetch_paid, wallet, limits."
 ---
 
-`aifinpay-agent` is a non-custodial x402 payment client for autonomous AI
-agents. It is the Python surface of the same payment infrastructure that
-powers the rest of AiFinPay — Stripe for AI agents. Your agent generates an
-Ed25519 keypair locally, funds it on-chain, and then `agent.pay(url)` handles
-the entire HTTP 402 handshake for you: detect the facilitator, sign, settle,
-retry.
+import CurrentVersions from "/snippets/current-versions.mdx";
 
-<Note>
-The keypair is generated **inside your process and never transmitted**. The
-server only ever sees a signature, never your secret key. AiFinPay is
-token-free — there is nothing to buy, stake, or trade. The internal credit
-that used to be earned on paid calls was retired on 2026-08-06 and was never
-minted, so there is no accounting unit to hold either.
-</Note>
+`aifinpay-agent` is a non-custodial payment client for AI agents. The agent
+holds its own wallet, answers an HTTP **402** from an AiFinPay merchant with a
+payment, and gets the paid response back. The keypair is generated locally and
+never leaves your process.
 
-<Warning>
-**Python cannot pay AiFinPay merchants yet.** Live AIFP-1 payments settle on
-the Polygon v1.4 splitter, and that executor exists only in the Node SDK
-(`fetchPaid`) and the MCP server (`payable_fetch`). Use one of those to pay.
-`agent.sign_dashboard_claim(challenge)` links a Python agent to its owner's
-dashboard (My Agents → Link an agent → by signed message).
-</Warning>
+Agents pay in USDC or POL from their own wallet on Polygon. There is no
+AiFinPay token and no balance held by AiFinPay.
+
+<CurrentVersions />
 
 ## Install
 
@@ -32,207 +21,122 @@ dashboard (My Agents → Link an agent → by signed message).
 pip install aifinpay-agent
 ```
 
-The import package is `aifinpay`:
+The import package is `aifinpay`.
+
+## Create the wallet
 
 ```python
-from aifinpay import Agent, PayOptions
+from aifinpay.unified_agent import AiFinPayAgent
+
+agent = AiFinPayAgent.from_seed(SEED_HEX)  # 32-byte seed you keep private
+print("EVM address:", agent.evm_address)   # fund on Polygon: POL, or USDC + a little POL for gas
 ```
+
+The same seed always gives the same addresses, in Python and in the Node SDK.
 
 ## Your first paid call
 
-<Steps>
-<Step title="Create an agent identity">
-`Agent.new()` generates a fresh Ed25519 keypair locally. Print the address to
-fund it, and persist `secret_b58` if you want to reuse this identity later.
+```python
+r = agent.fetch_paid(
+    "https://wp-demo.aifinpay.io/wp-json/aifinpay-demo/v1/market-snapshot",
+    allowed_origins=["https://wp-demo.aifinpay.io"],  # the only origins it will pay
+    max_amount_usd=0.20,                               # per batch
+    daily_amount_usd=2.00,                             # rolling 24 h, persisted
+    asset="USDC",                                      # or "POL" (default)
+)
+print(r.status_code, r.json())
+```
+
+The demo route is priced at $0.0005 per request. On an AIFP-1 `402`,
+`fetch_paid` buys one batch (the minimum the 402 advertises, $0.02 by default),
+settles it on Polygon, exchanges it for a receipt and retries. Later requests
+the receipt covers cost no transaction.
+
+Nothing is signed unless the origin is allowed, the signed quote matches the
+challenge and the SDK's pinned deployment, and the batch fits both limits. POL
+is priced against an independent POL/USD source, never the quote; USDC approves
+exactly the batch.
+
+## Limits
+
+- `max_amount_usd` caps one batch; `daily_amount_usd` caps a rolling 24 hours.
+  Processes that share one `journal_dir` share one budget.
+- Gas is separate from the USD limits. On Polygon it has a default cap; every
+  other network needs an explicit `max_gas_wei`.
+- Polygon is the default. Omitting `chain` keeps Polygon even if a merchant
+  advertises another network; to pay elsewhere, pass `chain` yourself.
+
+## When a payment does not finish
+
+Every settlement is journaled to `journal_dir` (default `~/.aifinpay/journal`)
+before it is sent.
+
+- **Unknown outcome.** `Aifp1PayError` carries `recovery["journal_path"]`; call
+  `agent.recover_paid(path)`. Do not pay again.
+- **`Aifp1ActiveReceiptError`** (`code = "AIFP1_ACTIVE_RECEIPT"`). Within a
+  minute of a settled purchase, the same payer and resource get the existing
+  receipt instead of a quote. Nothing was quoted or paid.
+
+  ```python
+  from aifinpay import Aifp1ActiveReceiptError
+
+  try:
+      r = agent.fetch_paid(url, ...)
+  except Aifp1ActiveReceiptError as e:
+      if not e.journal_path:
+          raise  # no journal for e.tx_ref: buying again is a new payment, the owner's call
+      agent.recover_paid(e.journal_path)
+      r = agent.fetch_paid(url, ...)  # reuses the recovered receipt
+  ```
+
+  Do not retry `fetch_paid` to get past it: once the minute is over, a new
+  quote is a new purchase.
+- **`Aifp1MerchantChangedError`** (`code = "AIFP1_MERCHANT_CHANGED"`). A
+  gateway site (`https://gateway.aifinpay.io/<slug>`) is pinned to the merchant
+  it was first paid as. If the change is legitimate, pass
+  `allow_merchant_change=True` for that call, or name the merchant you trust
+  with `expected_merchant_id="mrch_..."`.
+- **`Aifp1GatewayRetiredError`** (`code = "AIFP1_GATEWAY_RETIRED"`). The slug
+  answers `410 gateway_retired`. Do not retry it.
+
+## Link the agent to your dashboard
+
+At [dash.aifinpay.io](https://dash.aifinpay.io) → **My Agents** → **Add agent
+by address** you get a challenge. Sign it and hand back the signature:
 
 ```python
+signature = agent.sign_dashboard_claim(challenge)
+```
+
+`sign_dashboard_claim` signs only `AiFinPay-claim:polygon:<this address>:<nonce>`
+and refuses any other text. You then see the agent's balance, payments and
+receipts.
+
+## Name the AI client that pays
+
+Pass `framework` and every request of the payment flow carries
+`AIFP-Agent-Framework: <value>`, so the merchant dashboard shows which AI
+client paid:
+
+```python
+agent = AiFinPayAgent.from_seed(seed_hex, framework="claude")
+```
+
+Accepted values: `chatgpt`, `claude`, `perplexity`, `gemini`, `cursor`,
+`openai-agents`, `windsurf`, `custom`. Leave it unset and no header is sent.
+
+## Request authentication without payment
+
+The legacy `Agent` class and `agent.pay(url)` sign requests to endpoints that
+authenticate agents by key; they do not buy access. Paying is `fetch_paid`.
+
+```python
+import os
 from aifinpay import Agent
 
-agent = Agent.new()
-print("Fund this address:", agent.address)
-print("Save this secret:", agent.secret_b58)  # store securely!
-```
-</Step>
-
-<Step title="Fund the wallet, then wait for it on-chain">
-Send a few cents of value to `agent.address`, then block until the funding is
-visible on-chain. `min_usd_cents` is the threshold in US cents.
-
-```python
-# Wait until the wallet has at least $0.01 worth on-chain
-agent.wait_for_funding(min_usd_cents=1)
-```
-
-This polls the public leaderboard until your address shows up with enough
-reserved, and raises `FundingTimeoutError` if it never does (default timeout
-600s).
-</Step>
-
-<Step title="Pay a gated endpoint">
-`agent.pay(url)` sends the request, and on an HTTP 402 it auto-detects the
-facilitator, builds the right auth payload, settles, and retries — returning a
-standard `requests.Response`.
-
-```python
-resp = agent.pay("https://aifinpay.io/api/stats")
-print(resp.json())
-```
-</Step>
-</Steps>
-
-## Paying any x402 endpoint
-
-`agent.pay()` works against any supported x402 facilitator, not just AiFinPay's
-own endpoints. Extra keyword arguments (`method`, `json`, `headers`, …) are
-forwarded to the underlying `requests` call.
-
-```python
-from aifinpay import Agent, PayOptions
-
-agent = Agent.from_secret_b58("3RvZm7Gw...")
-
-resp = agent.pay(
-    "https://api.example.com/v1/data",
-    method="POST",
-    json={"q": "hello"},
-    options=PayOptions(max_amount_usd=0.10),  # refuse if cost > $0.10
-)
-print(resp.json())
-```
-
-Two convenience wrappers pin the verb for you:
-
-```python
-agent.get("https://aifinpay.io/api/stats")
-agent.post("https://api.example.com/v1/data", json={"q": "hello"})
-```
-
-### `pay()` parameters
-
-| Argument | Type | Default | Purpose |
-|---|---|---|---|
-| `url` | `str` | — | Target URL. |
-| `method` | `str` | `"GET"` | HTTP verb. |
-| `max_retries` | `int` | `1` | Retries after a 402 before raising. |
-| `options` | `PayOptions` | `None` | Budget cap and facilitator overrides. |
-| `**request_kwargs` | — | — | Forwarded to `requests` (`json=`, `headers=`, …). |
-
-### Controlling cost with `PayOptions`
-
-```python
-from aifinpay import PayOptions
-
-opts = PayOptions(
-    max_amount_usd=0.10,        # refuse if the facilitator wants more
-    preferred_chain="polygon",  # hint for multi-chain facilitators
-    facilitator="auto",         # "auto" | "aifinpay" | "coinbase-x402"
-    extra_headers={"x-trace": "demo"},
-)
-```
-
-<Warning>
-If a 402 challenge demands more than `max_amount_usd`, `pay()` raises
-`PaymentTooExpensiveError` **before** anything is signed or settled — your
-funds are never spent above the cap.
-</Warning>
-
-## Loading an existing keypair
-
-Reuse a persisted identity instead of generating a new one each run:
-
-<CodeGroup>
-```python From a base58 secret
+agent = Agent.from_keypair_file(os.path.expanduser("~/agent-wallet.json"))
 agent = Agent.from_secret_b58("3RvZm7Gw...")
 ```
 
-```python From a solana-keygen JSON file
-agent = Agent.from_keypair_file("~/agent-wallet.json")
-```
-</CodeGroup>
-
-Both accept the same keyword arguments as `Agent.new()` (e.g. `base_url`,
-`timeout`).
-
-## The retired Seat flow
-
-The Solana Seat invoice flow (`reserve_seat_invoice`) is retired: the Solana
-program is closed and cannot execute. Do not pay it.
-
-<Info>
-**How the handshake works.** On a 402 the SDK reads the `x-nonce` from the
-challenge, computes `SHA-256("AiFinPay-x402:{nonce}:{pubkey}")`, signs it with
-Ed25519, and sets three headers on the retry: `x-agent-pubkey`, `x-nonce`,
-`x-signature`. Nonces are consumed on use, so the auth is replay-resistant.
-</Info>
-
-## Errors
-
-All exceptions subclass `AiFinPayError` and are importable from `aifinpay`:
-
-| Exception | Raised when |
-|---|---|
-| `PaymentTooExpensiveError` | Cost exceeds `options.max_amount_usd`. |
-| `X402Error` | Still 402 after `max_retries`. |
-| `UnsupportedFacilitatorError` | 402 from a facilitator flavor the SDK doesn't know. |
-| `FacilitatorNotImplementedError` | Known facilitator, settlement not wired yet. |
-| `FundingTimeoutError` | `wait_for_funding()` timed out. |
-| `SeatNotFoundError` | Expected Seat not present on-chain. |
-
-```python
-from aifinpay import Agent, PayOptions, PaymentTooExpensiveError, X402Error
-
-agent = Agent.from_secret_b58("3RvZm7Gw...")
-try:
-    resp = agent.pay("https://api.example.com/v1/data",
-                     options=PayOptions(max_amount_usd=0.05))
-except PaymentTooExpensiveError:
-    print("over budget — skipped")
-except X402Error as e:
-    print("could not satisfy the 402 challenge:", e)
-```
-
-## Advanced: paying registered providers across chains
-
-For a chain-opaque surface that selects and settles a payment per call, use
-`AiFinPayAgent`. One identity derives both a Solana base58 address and a Polygon
-EVM address; `call(provider=…)` looks the provider up in the registry, settles
-the 402 on-chain, and returns the upstream response.
-
-Install the unified extras (adds the EVM and Solana signing dependencies):
-
-```bash
-pip install 'aifinpay-agent[unified]'
-```
-
-```python
-from aifinpay import AiFinPayAgent
-
-agent = AiFinPayAgent.new()
-print("Solana:", agent.solana_address)
-print("EVM:   ", agent.evm_address)
-
-# Fund the wallet, then make a paid call to a registered provider.
-resp = agent.call(
-    provider="io-net",
-    body={"model": "meta-llama/Llama-3.3-70B-Instruct",
-          "messages": [{"role": "user", "content": "Hello"}]},
-    cost=0.05,  # budget cap — refuses if the registry price is higher
-)
-print(resp.json())
-```
-
-`call()` accepts `provider`, `body`, `method` (default `"POST"`), `chain`
-(`"polygon"` | `"solana"`, defaults to the provider's preferred chain), `cost`
-(a budget cap), and `timeout`. To reuse an identity, construct it from a seed or
-an existing Solana secret:
-
-```python
-agent = AiFinPayAgent.from_seed("0x" + "00" * 32)        # one 32-byte hex seed
-agent = AiFinPayAgent.from_solana_secret("3RvZm7Gw...")  # EVM key derived from it
-```
-
-<Tip>
-Same identity, both SDKs: a seed produces byte-for-byte the same Solana and EVM
-addresses in the Python and Node SDKs, so an agent can move between runtimes
-without changing wallets.
-</Tip>
+The provider bridge (`call()` to the AiFinPay bridge host) was retired on
+2026-10-12, and the Solana Seat invoice flow is closed. Do not pay either.

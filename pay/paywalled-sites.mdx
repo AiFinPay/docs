@@ -3,19 +3,19 @@ title: "Paying a paywalled site"
 description: "Discover the route, check client compatibility, and understand prepaid batches and receipt scope."
 ---
 
+import CurrentVersions from "/snippets/current-versions.mdx";
+
 A site integrated with `@aifinpay/gate` returns HTTP **402** with
 `protocol: "AIFP-1"`. One on-chain settlement buys a batch of billing units;
 subsequent covered requests use an `AIFP-Receipt` header and consume quota.
 
 ## Check the client before paying
 
-- `@aifinpay/mcp` 2.2.x pays with `payable_fetch` once the owner enables it.
-- `@aifinpay/agent` 2.1.x pays with `fetchPaid` (v14 journal, gas cap and an
-  independent POL/USD rate you supply).
-- Both settle AIFP-1 on Polygon splitter v1.4 in native POL and do not execute a
-  legacy v1.2 quote. The Python SDK does not pay yet.
-- `agent.pay` and AIFP-1 `fetchPaid` are different protocol paths; one is not
-  a fallback for a rejected deployment in the other.
+<CurrentVersions />
+
+- None of the three executes a legacy v1.2 quote.
+- `agent.pay` and AIFP-1 `fetchPaid` / `fetch_paid` are different protocol
+  paths; one is not a fallback for a rejected deployment in the other.
 
 If the merchant offers an incompatible route, stop before signing. Installing
 [the skill](/skills) provides instructions, not a different executor. Consult

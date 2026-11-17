@@ -30,13 +30,10 @@ protocol. Network gas is separate in both routes.
 
 ## Current release boundary
 
-- **Payment-live today: Polygon and Base**, AIFP-1 on splitter v1.4, in native
-  currency or USDC. The live list is the `networks` field of
-  [x402.json](https://api.aifinpay.io/.well-known/x402.json); it is built from the
-  networks this backend serves and is the only place to check.
-- Other EVM networks with v1.4 deployments are `deployed`, not payment-live:
-  the backend does not serve them yet, and a payment there would not earn a
-  receipt.
+- **Served today:** the networks that
+  [https://aifinpay.io/api/payment-capabilities](https://aifinpay.io/api/payment-capabilities)
+  lists with `network_mode` `"live"`. **Default: Polygon**, where released
+  clients pay unless the owner selects another served network.
 - **Solana: disabled.** The deployment registry marks Solana clusters
   settlement-enabled, but the backend does not serve Solana payments; the
   historical Solana Seat program is closed on mainnet and must not be paid.
