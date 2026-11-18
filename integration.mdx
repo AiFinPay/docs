@@ -236,6 +236,19 @@ HTTP 402
 }
 ```
 
+The `402` can also say what the page is, so an agent can decide whether it is
+worth buying. Give the gate an `about` function that returns the page's own
+title and a summary you wrote, never an excerpt of the paid text
+(`@aifinpay/gate` 0.13.0, `aifinpay-gate` 0.10.0):
+
+```ts
+aifpGate({ merchantId, registry, about: (req) => ({ title: page.title, description: page.summary }) });
+```
+
+```json
+"about": { "title": "Fish and chips", "description": "Where to eat them." }
+```
+
 Keep the complete quote response. When it includes `payment_authorization`, the
 client must sign the wallet-bound authorization described by that object and
 send it with `/v1/pay`; do not invent or omit that field in a hand-written

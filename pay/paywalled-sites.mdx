@@ -28,6 +28,10 @@ its paths, prices and scopes, then read the site's API catalog for required
 parameters. Request the chosen route and inspect the 402 minimum batch.
 A fresh quote supplies chain, asset, amount, merchant and expiry.
 
+A 402 may carry `about`: the page's title and a short description the site
+owner wrote. Use it to decide whether the page is worth buying. It is
+information only and no part of the price or the receipt.
+
 For example, `dev.ratersapp.com` publishes both discovery and `/api/agent`.
 Its `/api/agent/genres` was priced at $0.0005 per standard request with an
 exact scope, settling on Polygon v1.4. The minimum batch is now $0.02.

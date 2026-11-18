@@ -91,6 +91,27 @@ without payment. An agent that sends an AiFinPay receipt or agent ID always pays
 To charge scrapers that pretend to be browsers as well, see
 [Charge everyone who has not proven they may read](/charge/unproven-pays).
 
+## Tell agents what a page is
+
+The price alone does not say what an agent is buying. With **Tell agents what a
+page is** the `402` of a content page also carries its title and the summary
+its editor wrote:
+
+```json
+"about": { "title": "Fish and chips", "description": "Where to eat them." }
+```
+
+| Choice | The 402 carries |
+|---|---|
+| **Title and summary** | The title, and the body field's summary if the editor filled it in. |
+| **Title** | The title only. |
+| **Off** | The price only. |
+
+The summary is never cut from the paid text. **Summary field** names another
+plain-text field to use instead, such as `field_teaser`. A new site starts on
+**Title and summary**; a site updated from an earlier version starts on
+**Off**. Needs module 1.2.0 or later.
+
 ## What the module sends to AiFinPay
 
 - The connect code, once, to `POST https://api.aifinpay.io/v1/merchants/connect`.
