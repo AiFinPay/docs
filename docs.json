@@ -38,6 +38,7 @@
               "integration",
               "charge/wordpress",
               "charge/drupal",
+              "charge/unproven-pays",
               "charge/gateway",
               "charge/dashboard",
               "charge/onboarding",
