@@ -88,6 +88,9 @@ hosts where agents are charged, and whether charging is approved.
 **Serve readers free** lets requests that do not identify as an AI agent through
 without payment. An agent that sends an AiFinPay receipt or agent ID always pays.
 
+To charge scrapers that pretend to be browsers as well, see
+[Charge everyone who has not proven they may read](/charge/unproven-pays).
+
 ## What the module sends to AiFinPay
 
 - The connect code, once, to `POST https://api.aifinpay.io/v1/merchants/connect`.

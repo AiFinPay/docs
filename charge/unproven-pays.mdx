@@ -1,0 +1,243 @@
+---
+title: "Charge everyone who has not proven they may read"
+description: "Readers who passed a quick browser check and verified search engines read free. Everyone else, including scrapers that pretend to be browsers, gets your price."
+---
+
+By default AiFinPay charges AI agents that say who they are, and everyone else
+reads free. That lets a scraper read free just by claiming to be a browser.
+With this setting it is the other way round: only visitors who have proven they
+may read free get the page, and everyone else gets your price.
+
+## Who reads for free
+
+- **A reader whose browser passed a quick check.** The check is Cloudflare
+  Turnstile. It runs in the background. When it passes, the browser keeps a
+  pass for 30 days. The pass is tied to the name the browser sends (its
+  User-Agent).
+- **A search engine whose network has been verified.** Google, Bing, Apple,
+  Yandex and Baidu crawlers read free when their address really belongs to that
+  company. A crawler that only calls itself Googlebot pays.
+- **Nobody else.** An AI agent that sends an AiFinPay receipt or agent ID always
+  pays, whatever else it sends. A verified AI crawler pays too.
+
+On WordPress, a user who is signed in to your site also reads free.
+
+## What a reader sees
+
+A reader opens a paid page and sees it at once: the title, the layout and
+everything around the article. The paid part loads in a moment later, when the
+check has passed, without reloading the page. After that, paid pages open whole
+for 30 days.
+
+The check runs unseen. If Cloudflare does not trust a browser, it may ask for
+one click. We kept that click so that a real person is never locked
+out.
+
+While the paid part is still loading, the page tells search engines not to
+index it and tells caches not to store it.
+
+## What everyone else gets
+
+| Visitor | What it gets |
+|---|---|
+| A script (curl, a scraper), whatever it calls itself | The price (`HTTP 402`), without your text |
+| An AI crawler such as GPTBot | The price, without your text |
+| An AI agent with a valid AiFinPay receipt | The page, counted against what it paid |
+| A verified search engine | The page |
+| A crawler that only claims to be a search engine | The price, without your text |
+
+A visitor that does not ask for a web page gets the price as data an agent can
+read. A browser that has not passed the check gets the page with the price
+inside it, so an agent that drives a browser also learns how to pay.
+
+## The three settings
+
+The setting is called **Who reads for free**. It applies to protected paths in
+Enforce.
+
+| Setting | Who reads free | Pick it when |
+|---|---|---|
+| `named`: everyone except AI agents that name themselves | Every visitor that does not say it is an AI agent | You want to start gently. This is the default, and sites that were set up before this setting keep it. |
+| `proven`: readers who passed a check, and verified search engines | Readers with a pass, verified search engines | Scrapers that pretend to be browsers are reading your paid pages. |
+| `everyone`: nobody, every request without a receipt pays | Nobody | The section is meant for machines only, such as an API or a data feed. |
+
+<Warning>
+  `proven` needs a Turnstile site key and secret key. Until both are saved, the
+  setting acts as `everyone`: everyone pays on protected paths, readers too. It
+  never falls back to free. The settings page says what is missing.
+</Warning>
+
+## Before you start: a Turnstile widget
+
+The check is Cloudflare Turnstile. A free Cloudflare account is enough, and
+your site does not have to run on Cloudflare for WordPress and Drupal.
+
+<Steps>
+  <Step title="Create the widget">
+    In your Cloudflare account open **Turnstile**, add a widget for your site's
+    domain, and choose **Managed** mode.
+  </Step>
+
+  <Step title="Copy the two keys">
+    Cloudflare shows a site key and a secret key. You paste both into your
+    plugin or module. The plugin or module makes its own reader key; you never
+    see or copy it.
+  </Step>
+</Steps>
+
+When the check passes, your site sends the check result, your secret key and
+the visitor's IP address to Cloudflare to confirm it. The pass the browser
+keeps holds an expiry time and a signature, nothing that identifies the
+visitor.
+
+## Set it up
+
+### WordPress
+
+You need the [WordPress plugin](/charge/wordpress) 0.4.0 or later, connected to
+AiFinPay and in Enforce.
+
+<Steps>
+  <Step title="Choose the setting">
+    In **Settings → AiFinPay**, under **Who reads for free**, choose
+    **Readers who passed a silent browser check, verified search engines and
+    signed-in users**.
+  </Step>
+
+  <Step title="Paste the keys">
+    Paste the **Turnstile site key** and **Turnstile secret key** and save. The
+    **Status** table shows which setting is in force.
+  </Step>
+</Steps>
+
+The plugin holds the paid text back inside WordPress: from the page, the
+excerpt, feeds and the REST API. If your theme or page builder prints the post
+text in a way the plugin cannot hold back, the visitor gets a short page with
+the price instead, and the whole page after the check.
+
+### Drupal
+
+You need the [Drupal module](/charge/drupal) in **Mode: Enforce** with
+**Self-hosted gate**.
+
+<Steps>
+  <Step title="Choose the setting">
+    In **Configuration → Web services → AiFinPay**, under
+    **Who reads for free**, choose **Readers who passed a silent browser check,
+    and verified search engines; everyone else gets the price**.
+  </Step>
+
+  <Step title="Paste the keys">
+    Fill in **Turnstile site key** and **Turnstile secret key** and save. The
+    secret key stays on your server and is never in exported configuration.
+  </Step>
+
+  <Step title="Check the paid fields">
+    **Paid fields** lists the fields of a page that are held back until the
+    check passes. The default is `body`. Add any other field that carries the
+    paid text.
+  </Step>
+</Steps>
+
+A page with no paid field, or one that repeats its text somewhere else, gets a
+short page with the price instead. Drupal's page caches never store a page
+with the paid part held back.
+
+### Cloudflare
+
+If your site already runs on Cloudflare, a Worker can do the same at
+Cloudflare, in front of your site. It uses Cloudflare's own list of verified
+bots, so search engines, link previews and uptime monitors read free, and AI
+crawlers do not. It works on its own or in front of the WordPress plugin or
+Drupal module.
+
+The Worker and its installer are not published yet.
+[Ask us](mailto:contact@aifinpay.io) (`contact@aifinpay.io`) to set it up for
+your site.
+
+### Your own code: Node and Python
+
+The gate packages have the same rule as a building block: `unprovenPays` in
+`@aifinpay/gate` 0.12.0 and `unproven_pays` in `aifinpay-gate` 0.9.0. They
+issue and check the reader's pass and verify search engines. They do not run
+the browser check: you add Turnstile to your pages yourself and issue the pass
+when it succeeds.
+
+<Tabs>
+  <Tab title="Node">
+    ```ts
+    import { aifpGate, createReaderProof, unprovenPays } from "@aifinpay/gate";
+
+    const readerProof = createReaderProof({ key: process.env.AIFP_READER_KEY! }); // 32+ bytes
+    app.set("trust proxy", "loopback"); // so req.ip is the client, not your proxy
+    app.use("/articles", aifpGate({ merchantId, registry, shouldCharge: unprovenPays({ readerProof }) }));
+
+    // After your own browser check passes:
+    res.setHeader("Set-Cookie", readerProof.setCookie(readerProof.issue(req.get("user-agent"))));
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    from aifinpay_gate import Gate, ReaderProof, unproven_pays
+
+    reader_proof = ReaderProof(os.environ["AIFP_READER_KEY"])  # 32+ bytes
+    gate = Gate(merchant_id, resource="/articles", should_charge=unproven_pays(reader_proof))
+
+    # After your own browser check passes:
+    response.headers["Set-Cookie"] = reader_proof.set_cookie(reader_proof.issue(request.headers.get("user-agent")))
+    ```
+  </Tab>
+</Tabs>
+
+The package READMEs for
+[Node](https://github.com/AiFinPay/sdk/tree/main/gate#unproven-pays) and
+[Python](https://github.com/AiFinPay/sdk/tree/main/python-gate#unproven-pays)
+say which request field carries the visitor's address on each server.
+
+## Behind a proxy or CDN
+
+Search engines are verified by the visitor's IP address. If your site sits
+behind a proxy, load balancer or CDN, your site must be told the real visitor
+address. Otherwise every visitor seems to come from the proxy, no search engine
+is verified, and they all pay.
+
+- **WordPress**: configure your web server to pass the real address, or use
+  the `aifinpay_client_ip` filter.
+- **Drupal**: set `reverse_proxy` and `reverse_proxy_addresses` in
+  `settings.php`.
+- **Node and Python**: see the package READMEs linked above.
+
+## What it does not stop
+
+This setting makes a scraper prove itself before it reads free. It does not
+stop every bot.
+
+- **Automation in a real browser.** A script that drives a real, visible
+  browser may pass the check and read free. We have not measured this.
+- **A copied pass.** A reader's pass copied into a script that sends the same
+  browser name reads free until the pass expires.
+- **Pages cached elsewhere.** A CDN that keeps copies of your pages and does
+  not run the AiFinPay Worker serves those copies without the check.
+- **Google's AI answers.** Google's crawler collects pages for both Search and
+  Google's AI answers. A verified Googlebot reads free, and this cannot be told
+  apart per request.
+
+The plugins also keep their other limits. On WordPress, for example, files in
+`wp-content/uploads` cannot be protected, and a home page or archive that shows
+the full text of a protected post shows it there too.
+
+## What we measured
+
+We ran the Cloudflare version on a test site on 2026-11-17, on Cloudflare's
+free plan:
+
+- curl with any browser name, GPTBot and a fake Googlebot got the price.
+- A client that sent the "verified bot" mark itself still got the price.
+- A forged pass got the price.
+- A browser-like client got the page in about 0.4 seconds, with the real title
+  and headline and without the paid text.
+- Headless Chrome driven by Puppeteer, plain or disguised, did not read the
+  paid text.
+
+We did not measure a real Googlebot or a real verified AI crawler, automation
+in a visible browser, or a pass copied from a real browser into a script.
