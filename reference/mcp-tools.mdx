@@ -1,14 +1,14 @@
 ---
 title: "MCP tools reference"
-description: "The registered tools in @aifinpay/mcp 2.16.3."
+description: "The registered tools in @aifinpay/mcp 2.17.0."
 ---
 
-For **@aifinpay/mcp 2.16.3**. Use the server's `tools/list` for exact input
+For **@aifinpay/mcp 2.17.0**. Use the server's `tools/list` for exact input
 schemas in your installed version.
 
 | Tool | Purpose |
 |---|---|
-| `payment_setup_status` | Read-only checklist: wallet, payments enabled, limits, balance, `funding` amount and one `next_step` |
+| `payment_setup_status` | Checklist: wallet, payments enabled, limits, balance, `funding` amount and one `next_step`; for a linked agent it also reports a summary of these settings to the owner's dashboard |
 | `payable_fetch` | Pay for and fetch an AIFP-1 resource (Polygon by default, or the owner-selected served network); always listed; returns the setup checklist while the wallet is ephemeral, unfunded or payments are switched off, and without an origin allowlist pays only a merchant that verified the site being fetched |
 | `agent_address` | Read the selected wallet's public addresses |
 | `agent_claim_self` | Link the agent to its owner's dashboard with a one-time URL from My Agents |
@@ -25,7 +25,9 @@ schemas in your installed version.
 
 `payable_fetch` is the only tool that moves funds, and only within the owner's
 configured limits and origins. `agent_claim_self` signs only an AiFinPay claim
-challenge for the agent's own address. `agent_reload` changes the in-process
+challenge for the agent's own address and, after an EVM claim, the settings
+summary for the owner's dashboard; `payment_setup_status` signs the same summary
+for a linked agent (never keys, the passphrase or file paths). `agent_reload` changes the in-process
 wallet selection; it does not transfer funds.
 
 The server also exposes the Markdown resource `aifinpay://skill`. Read it for
