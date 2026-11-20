@@ -157,6 +157,26 @@ site record is used for up to a day. After that, and whenever the receipt keys
 cannot be read, AI agents on protected paths get a `503`: they never get the
 page for free.
 
+## Tell agents what a page is
+
+The price alone does not say what an agent is buying. With **Tell agents what a
+page is** the `402` of a post or page also carries its title and the Excerpt
+you typed for it:
+
+```json
+"about": { "title": "Fish and chips", "description": "Where to eat them." }
+```
+
+| Choice | The 402 carries |
+|---|---|
+| **Title and summary** | The title, and the Excerpt if you wrote one. |
+| **Title** | The title only. |
+| **Off** | The price only. |
+
+The summary is only ever the Excerpt you typed, never text taken from the post.
+A new site starts on **Title and summary**; a site updated from an earlier
+version starts on **Off**. Needs plugin 0.5.0 or later.
+
 ## What it cannot do
 
 - It goes by what a visitor says it is. A scraper that pretends to be a browser

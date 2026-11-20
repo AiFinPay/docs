@@ -57,13 +57,16 @@ Enforce.
 
 | Setting | Who reads free | Pick it when |
 |---|---|---|
-| `named`: everyone except AI agents that name themselves | Every visitor that does not say it is an AI agent | You want to start gently. This is the default, and sites that were set up before this setting keep it. |
-| `proven`: readers who passed a check, and verified search engines | Readers with a pass, verified search engines | Scrapers that pretend to be browsers are reading your paid pages. |
-| `everyone`: nobody, every request without a receipt pays | Nobody | The section is meant for machines only, such as an API or a data feed. |
+| **AI agents only** | Every visitor that does not say it is an AI agent | You want to start gently. This is the default, and sites that were set up before this setting keep it. |
+| **Strict** | Readers with a pass, verified search engines | Scrapers that pretend to be browsers are reading your paid pages. |
+| **Everyone pays** | Nobody | The section is meant for machines only, such as an API or a data feed. |
+
+In configuration and in code the three are stored as `named`, `proven` and
+`everyone`.
 
 <Warning>
-  `proven` needs a Turnstile site key and secret key. Until both are saved, the
-  setting acts as `everyone`: everyone pays on protected paths, readers too. It
+  **Strict** needs a Turnstile site key and secret key. Until both are saved, it
+  acts as **Everyone pays**: everyone pays on protected paths, readers too. It
   never falls back to free. The settings page says what is missing.
 </Warning>
 
@@ -100,8 +103,7 @@ AiFinPay and in Enforce.
 <Steps>
   <Step title="Choose the setting">
     In **Settings → AiFinPay**, under **Who reads for free**, choose
-    **Readers who passed a silent browser check, verified search engines and
-    signed-in users**.
+    **Strict**. In plugin 0.4.0 it is the second choice in the list.
   </Step>
 
   <Step title="Paste the keys">
@@ -123,8 +125,8 @@ You need the [Drupal module](/charge/drupal) in **Mode: Enforce** with
 <Steps>
   <Step title="Choose the setting">
     In **Configuration → Web services → AiFinPay**, under
-    **Who reads for free**, choose **Readers who passed a silent browser check,
-    and verified search engines; everyone else gets the price**.
+    **Who reads for free**, choose **Strict**. In module 1.1.0 it is the second
+    choice in the list.
   </Step>
 
   <Step title="Paste the keys">
@@ -151,9 +153,42 @@ bots, so search engines, link previews and uptime monitors read free, and AI
 crawlers do not. It works on its own or in front of the WordPress plugin or
 Drupal module.
 
-The Worker and its installer are not published yet.
-[Ask us](mailto:contact@aifinpay.io) (`contact@aifinpay.io`) to set it up for
-your site.
+You need Node 22 or later and a Cloudflare API token for your zone, set as
+`CLOUDFLARE_API_TOKEN`. The installer creates the Turnstile widget itself.
+
+<Steps>
+  <Step title="See what it would change">
+    ```bash
+    npx @aifinpay/gate-cloudflare install news.example.com --merchant mrch_... --payment origin --selector .entry-content --mode enforce --dry-run
+    ```
+
+    With `--dry-run` it reads your zone, prints every change and makes none.
+  </Step>
+
+  <Step title="Install">
+    Run the same command without `--dry-run`. It uploads the Worker, adds a
+    route for that one host and two rules scoped to it, and leaves every other
+    rule as it is.
+  </Step>
+</Steps>
+
+| Option | What to give it |
+|---|---|
+| `--merchant` | Your site's ID from the dashboard. |
+| `--payment origin` | Your site already runs the WordPress plugin, the Drupal module or a gate package. The Worker only decides who has to pay. |
+| `--payment edge` | Nothing runs on your site. The Worker also prices, checks receipts and counts. Name the paid addresses with `--paid-prefix /articles/`. |
+| `--selector` | The part of the page that is paid, as a CSS selector: `.entry-content` on most WordPress themes, `.node__content` on Drupal. Without it an unproven browser gets a short page with the price. |
+| `--mode` | `shadow` changes no page; `enforce` charges. |
+
+To take it away again, run
+`npx @aifinpay/gate-cloudflare remove news.example.com`. It deletes only what
+the installer created. The
+[package page](https://www.npmjs.com/package/@aifinpay/gate-cloudflare) lists
+every option.
+
+The token must be able to edit Workers Scripts, Workers Routes, Transform Rules
+and Turnstile. We installed with an account-wide key; a token limited to these
+four has not been tested yet.
 
 ### Your own code: Node and Python
 
