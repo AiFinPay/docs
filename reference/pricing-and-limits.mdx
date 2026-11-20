@@ -10,12 +10,13 @@ or contract disagrees with it, that component is not release-compatible.
 
 | Route | Payer total | Merchant/provider | AiFinPay | Creator/referral | Network gas |
 |---|---:|---:|---:|---:|---|
-| **AIFP-1** | exact quoted gross | the rest | set per merchant, in each quote | 0% | separate |
+| **AIFP-1** | exact quoted gross | the rest | 1% by default, set per merchant, in each quote | 0% | separate |
 | **AIFP-2 / x402** | provider price | 100% | 0% | 0% | separate |
 
-AIFP-1 is **gross-inclusive**. A protocol fee is included in the quoted price;
-it is never added on top. Each quote and the on-chain transaction show the
-exact split between the merchant and the protocol.
+AIFP-1 is **gross-inclusive**. The AiFinPay fee is inside the quoted price: 1%
+by default, set per merchant and stated in every quote (`fee_policy.treasury_bps`).
+Nothing is added on top. Each quote and the on-chain transaction show the
+exact split between the merchant and AiFinPay.
 
 AIFP-2/x402 has a temporary 0% AiFinPay protocol fee for the current launch
 period. No expiry is encoded yet, so a later change requires a versioned

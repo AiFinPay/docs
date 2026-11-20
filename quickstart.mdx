@@ -3,6 +3,8 @@ title: "Quickstart"
 description: "Choose an agent or merchant workflow, install the public skill and verify the available tools."
 ---
 
+import CurrentVersions from "/snippets/current-versions.mdx";
+
 Start with the [AiFinPay skill](/skills). It contains separate instructions
 for an agent owner buying access and a merchant charging for a site or API.
 
@@ -36,15 +38,10 @@ pip install aifinpay-agent
 Choose the runtime you use; installing MCP already includes its SDK dependency.
 Keep the persistent wallet local and verify its public address in the client.
 
-<Note>
-MCP `@aifinpay/mcp` 2.16.3 pays with `payable_fetch` from a persistent wallet,
-on by default within a $5 / $20-per-day ceiling ([init → fund → link → pay](/pay/mcp));
-Node `@aifinpay/agent` 2.9.0 pays with `fetchPaid` and
-Python `aifinpay-agent` 2.7.1 with `fetch_paid`. All settle AIFP-1 (splitter
-v1.4) on Polygon by default, or on Base when the owner selects it, in the native
-currency or USDC; the smallest batch is $0.02 plus gas. A quote or invoice alone
-does not move funds. See [payment support](/pay/paywalled-sites).
-</Note>
+<CurrentVersions />
+
+The MCP wallet goes [init → fund → link → pay](/pay/mcp). See
+[payment support](/pay/paywalled-sites).
 
 After creating the wallet, link the agent to your account at
 [dash.aifinpay.io](https://dash.aifinpay.io) → **My Agents** to see its
