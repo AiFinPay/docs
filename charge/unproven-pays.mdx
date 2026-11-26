@@ -179,6 +179,18 @@ You need Node 22 or later and a Cloudflare API token for your zone, set as
 | `--payment edge` | Nothing runs on your site. The Worker also prices, checks receipts and counts. Name the paid addresses with `--paid-prefix /articles/`. |
 | `--selector` | The part of the page that is paid, as a CSS selector: `.entry-content` on most WordPress themes, `.node__content` on Drupal. Without it an unproven browser gets a short page with the price. |
 | `--mode` | `shadow` changes no page; `enforce` charges. |
+| `--no-traffic` | The Worker sends no [traffic summaries](/charge/what-your-gate-reports). |
+
+With `--payment origin`, `shadow` serves exactly what your site answers and,
+after the page has gone out, works out what `enforce` would have decided and
+counts it in its [traffic summary](/charge/what-your-gate-reports). For that
+the Worker needs your site's secret: set `AIFP_MERCHANT_SECRET` in the
+environment when you run the installer. Without it, shadow changes nothing and
+reports nothing. Nobody has passed the browser check in shadow, so every
+browser without a pass counts as asked to pay.
+
+The Worker covers one host. If your API answers on another host, install the
+Worker on that host too.
 
 To take it away again, run
 `npx @aifinpay/gate-cloudflare remove news.example.com`. It deletes only what

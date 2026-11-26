@@ -39,6 +39,7 @@
               "charge/wordpress",
               "charge/drupal",
               "charge/unproven-pays",
+              "charge/what-your-gate-reports",
               "charge/gateway",
               "charge/dashboard",
               "charge/onboarding",
