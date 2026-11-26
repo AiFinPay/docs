@@ -1,0 +1,161 @@
+---
+title: "What your gate tells AiFinPay"
+description: "Your gate names itself to AiFinPay and sends a count of its visits every five minutes. What leaves your site, what never does, and how to turn it off."
+---
+
+Your gate, or the AiFinPay Worker in front of your site, talks to AiFinPay
+with your site's secret. Every one of those requests says which gate sent it,
+and the gate also sends a short count of the visits it handled, at most once
+every five minutes. This page lists what both carry.
+
+## The gate names itself
+
+Every request your gate makes to AiFinPay with your site's secret carries two
+headers that name the gate. For example, a Node gate that watches and charges
+AI agents:
+
+```text
+User-Agent: aifinpay-gate-node/0.14.1
+AIFP-Gate: pkg=node; ver=0.14.1; platform=express; mode=shadow; charge=agents
+```
+
+| Part | What it says |
+|---|---|
+| `pkg` | Which integration: `node` for the Node package, `py` for the Python package, `cloudflare` for the Worker. |
+| `ver` | Its version. |
+| `platform` | What it runs on: `express` or `node` for Node; `asgi`, `wsgi` or `python` for Python; `workers` for the Worker. |
+| `mode` | `shadow` (the gate decides, then serves every request) or `enforce` (it charges), as set when the request is made. |
+| `charge` | Who it charges: `agents` for **AI agents only**, `unproven` for **Strict**, `everyone` for **Everyone pays**, and `custom` for a rule of your own. |
+
+AiFinPay keeps the last values it saw for your site, so it can tell which
+version your site runs. The headers never change how AiFinPay answers the
+request.
+
+## The traffic summary
+
+The gate counts every request it decides and sends one summary of those
+counts at most once every five minutes. Five minutes in which nothing was
+counted send nothing. A summary holds counts only:
+
+- **What kind of client, and what the gate did.** How many requests came from
+  readers (`human`), AI crawlers (`ai_crawler`) and so on, and for each how
+  many were served free (`served`), asked to pay (`challenged`), paid
+  (`paid`), blocked (`blocked`) or met an error in the gate (`error`). In
+  shadow, it counts what the gate decided, even though every request was
+  served.
+- **For bots and agents, who runs them** (`operators`), such as `openai`.
+- **For bots and agents, which part of the site they asked for**
+  (`sections`): only the first part of the address, such as `/blog`. A
+  language prefix like `/en` is skipped. A first part with more than four
+  digits or unusual characters is sent as `_other`.
+- **The country** (`countries`), as two letters.
+- **For bots and agents, the network** (`networks`): the number of the network
+  the request came from, such as `AS15169`.
+
+Readers are counted by kind, by what the gate did and by country only.
+Images, scripts and other files served free are not counted. The Worker also
+does not count its own reader check.
+
+The country and the network come only from what is already known: on the
+Worker, what Cloudflare resolved; on the Node and Python gates, a header your
+own CDN sets. The country is read from the `cf-ipcountry` header unless you
+name another one, and the network only from a header you name. The gate never
+looks an address up.
+
+Each summary holds at most 30 sections, 20 countries and 50 networks; the
+rest are added up under `_other`. Each list is counted on its own, so a row in
+one list cannot be joined to a row in another, and a summary cannot be turned
+back into single visits.
+
+An example summary:
+
+```json
+{
+  "v": 1,
+  "id": "7b0c6f0e-3d0a-4c58-9a51-0f2d6c1b9e77",
+  "from": "2026-11-25T10:00:00Z",
+  "to": "2026-11-25T10:05:00Z",
+  "mode": "shadow",
+  "charge": "agents",
+  "sample": 1,
+  "classes": [
+    ["ai_crawler", "challenged", 30],
+    ["human", "served", 18234]
+  ],
+  "operators": [["openai", "ai_crawler", "challenged", 30]],
+  "sections": [["/blog", "ai_crawler", 26]],
+  "countries": [["US", "human", 10110]],
+  "networks": [["AS15169", "ai_crawler", 12]]
+}
+```
+
+## What never leaves your site
+
+IP addresses, full page addresses and query strings, User-Agent strings,
+cookies, receipts and agent IDs. A reader's network is never sent.
+
+## How long AiFinPay keeps it
+
+- **Summaries** are added into one total per day for your site. The
+  five-minute windows themselves are not kept. The daily totals are kept for
+  120 days.
+- **A summary's ID** is kept for 48 hours, so the same summary is never
+  counted twice.
+- **The gate's name**: the last values seen, at most 20 different ones per
+  site, kept for 120 days after a gate last reported.
+
+## Who can read it
+
+You can read your site's counts back, signed in to your AiFinPay account, for
+the last 7 or 30 days, together with the gates that reported. AiFinPay's
+administrators can read the same for any site.
+
+## Turn summaries off
+
+<Tabs>
+  <Tab title="Node">
+    Set `traffic: false` on the gate:
+
+    ```ts
+    aifpGate({ merchantId, registry, onEvent: reporter.onEvent, traffic: false });
+    ```
+  </Tab>
+  <Tab title="Python">
+    Set `traffic=False` on the gate:
+
+    ```python
+    gate = Gate("mrch_…", routes=[Route("/api/*")], on_event=reporter.on_event, traffic=False)
+    ```
+  </Tab>
+  <Tab title="Cloudflare Worker">
+    Install with `--no-traffic`, or set `AIFP_TRAFFIC=off`. Or install
+    without your site's secret (`AIFP_MERCHANT_SECRET`): then the Worker sends
+    nothing to AiFinPay. With `--payment edge` the Worker needs the secret to
+    deliver its events, so there use `--no-traffic`.
+  </Tab>
+</Tabs>
+
+Turning summaries off stops the summaries only. They share nothing with the
+rest of what the gate sends, so gate events and receipt use go on as before,
+and the Node and Python gates still name themselves on every request.
+
+## Which versions report
+
+The Node and Python gates send summaries when a reporter
+(`createGateReporter` in Node, `GateReporter` in Python) is connected to the
+gate. The Worker sends them when it has your site's secret.
+
+| Integration | Names itself and sends summaries | Leaves out what the Worker counted |
+|---|---|---|
+| Node, `@aifinpay/gate` | 0.14.0 and later | 0.14.1 and later |
+| Python, `aifinpay-gate` | 0.11.0 and later | 0.11.1 and later |
+| Cloudflare Worker, `@aifinpay/gate-cloudflare` | 0.2.0 | — |
+
+The released versions of the [WordPress plugin](/charge/wordpress) and the
+[Drupal module](/charge/drupal) do not report yet.
+
+## Counted once
+
+Behind the AiFinPay Worker, your site's own gate does not count a request the
+Worker already counted: the Worker marks it with `AIFP-Edge-Counted: 1` and
+removes any copy a client sent.
