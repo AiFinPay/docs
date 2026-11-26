@@ -21,9 +21,9 @@ AIFP-Gate: pkg=node; ver=0.14.1; platform=express; mode=shadow; charge=agents
 
 | Part | What it says |
 |---|---|
-| `pkg` | Which integration: `node` for the Node package, `py` for the Python package, `cloudflare` for the Worker. |
+| `pkg` | Which integration: `node` for the Node package, `py` for the Python package, `cloudflare` for the Worker, `wordpress` for the WordPress plugin, `drupal` for the Drupal module. |
 | `ver` | Its version. |
-| `platform` | What it runs on: `express` or `node` for Node; `asgi`, `wsgi` or `python` for Python; `workers` for the Worker. |
+| `platform` | What it runs on: `express` or `node` for Node; `asgi`, `wsgi` or `python` for Python; `workers` for the Worker; `wordpress`; `drupal11`. |
 | `mode` | `shadow` (the gate decides, then serves every request) or `enforce` (it charges), as set when the request is made. |
 | `charge` | Who it charges: `agents` for **AI agents only**, `unproven` for **Strict**, `everyone` for **Everyone pays**, and `custom` for a rule of your own. |
 
@@ -133,6 +133,15 @@ administrators can read the same for any site.
     nothing to AiFinPay. With `--payment edge` the Worker needs the secret to
     deliver its events, so there use `--no-traffic`.
   </Tab>
+  <Tab title="WordPress">
+    On **Settings → AiFinPay**, untick **Send traffic summaries to AiFinPay**
+    and save.
+  </Tab>
+  <Tab title="Drupal">
+    On **Configuration → Web services → AiFinPay**, untick **Send traffic
+    summaries to AiFinPay** and save. The counts kept so far are deleted on
+    the next cron run.
+  </Tab>
 </Tabs>
 
 Turning summaries off stops the summaries only. They share nothing with the
@@ -150,9 +159,12 @@ gate. The Worker sends them when it has your site's secret.
 | Node, `@aifinpay/gate` | 0.14.0 and later | 0.14.1 and later |
 | Python, `aifinpay-gate` | 0.11.0 and later | 0.11.1 and later |
 | Cloudflare Worker, `@aifinpay/gate-cloudflare` | 0.2.0 | — |
+| [WordPress plugin](/charge/wordpress) | 0.7.0 and later | 0.7.0 and later |
+| [Drupal module](/charge/drupal) | 1.4.0 and later | 1.4.0 and later |
 
-The released versions of the [WordPress plugin](/charge/wordpress) and the
-[Drupal module](/charge/drupal) do not report yet.
+In the WordPress plugin and the Drupal module, summaries are on from the
+update for a connected site. A page that a page cache or a CDN answers without
+reaching WordPress or Drupal is not counted.
 
 ## Counted once
 
