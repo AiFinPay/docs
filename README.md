@@ -38,6 +38,13 @@ The repository includes a dependency-free check for local page links:
 node scripts/check-internal-links.mjs
 ```
 
+SDK and MCP versions are stated once, in `snippets/current-versions.mdx`, which
+pages import. This check fails when another page states one in prose:
+
+```bash
+node scripts/check-version-statements.mjs
+```
+
 ## Structure
 
 ```

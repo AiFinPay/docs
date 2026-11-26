@@ -1,13 +1,15 @@
 ---
 title: "Node / TypeScript Quickstart"
-description: "Build an AI agent that pays for APIs with @aifinpay/agent — generate a wallet, pay a URL, or let the SDK pick the best provider for a capability."
+description: "Pay AiFinPay merchants from Node with @aifinpay/agent: fetchPaid, wallet, limits."
 ---
 
-AiFinPay is payment infrastructure for AI agents — the Stripe for autonomous software. The Node SDK lets an agent hold its own non-custodial wallet, settle an HTTP **402** challenge on-chain, and get the gated response back in a single call. No KYC, no API key, no custodian holds your funds.
+import CurrentVersions from "/snippets/current-versions.mdx";
 
-<Note>
-AiFinPay is **token-free**. Agents pay in real assets — USDC, USDT, SOL, MATIC — settled on Solana and Polygon mainnet. There is no AiFinPay token to buy or hold. There is no internal credit to earn either: mSECCO was retired on 2026-08-06 and was never minted — crediting it cost an extra chain call on every payment.
-</Note>
+AiFinPay is payment infrastructure for AI agents. The Node SDK lets an agent hold its own non-custodial wallet, answer an HTTP **402** from an AiFinPay merchant with a payment, and get the paid response back in one call.
+
+Agents pay in USDC or POL from their own wallet on Polygon. There is no AiFinPay token and no balance held by AiFinPay.
+
+<CurrentVersions />
 
 ## Install
 
@@ -21,225 +23,123 @@ npm install @aifinpay/agent
 The package ships as ESM (`"type": "module"`), so the top-level `await` used in the snippets below works directly in a `.mjs` / `.ts` module.
 </Info>
 
+## Load the wallet
+
+Load the wallet you already configured before sharing a deposit address:
+
+```ts
+import { AiFinPayAgent } from "@aifinpay/agent";
+
+const agent = await AiFinPayAgent.fromEnvironment();
+console.log({ evm: agent.evmAddress, solana: agent.solanaAddress });
+```
+
+`fromEnvironment()` only loads; it never creates or overwrites a wallet, prints its keys, or calls the network. It selects one identity in this order, the same as the MCP server:
+
+1. `SEED_HASH`: a 32-byte seed encoded as 64 hex characters, optionally `0x` prefixed.
+2. `./aifinpay/agents.json` relative to the working directory (`AIFINPAY_AGENTS_FILE` for another path, `AIFINPAY_AGENT_ID` to pick one of several records).
+3. `AIFINPAY_AGENT_SECRET`: an existing base58 Solana secret.
+4. `~/.aifinpay/agent.json`, or `AIFINPAY_HOME/agent.json`: the MCP keystore. Encrypted keystores need `AIFINPAY_WALLET_PASSPHRASE`.
+
+Missing configuration, an invalid seed or a decryption failure throws instead of selecting a new wallet. Load any `.env` through your runtime first; the SDK reads `process.env` only.
+
+`AiFinPayAgent.new()` creates a fresh wallet each time and does not persist its keys. Use it only when you will store the recovery material privately before funding it, and never rerun it to recover a funded address. `AiFinPayAgent.fromSeed(seed, { derivationIndex })` selects a child wallet of the same seed.
+
+## Fund the EVM address
+
+Send POL, or USDC plus a little POL for gas, to `agent.evmAddress` on Polygon. The smallest payment is $0.02, and gas is paid separately from your wallet.
+
 ## Your first paid call
 
-The fastest path: generate a fresh agent, fund it, and call `agent.pay(url)`. The Ed25519 / EVM keypair is generated locally with `tweetnacl` and **never leaves your process** — the SDK only sends a one-time signature to authenticate.
-
-<Steps>
-<Step title="Generate an agent and print its address">
-```ts
-import { Agent } from "@aifinpay/agent";
-
-// Fresh keypair, generated locally. Persist `secretB58` to reuse this identity.
-const agent = Agent.new();
-console.log("Fund this address:", agent.address);
-console.log("Save this secret:", agent.secretB58); // store securely!
-```
-</Step>
-
-<Step title="Fund the address">
-Send a few cents of the appropriate asset to the printed address. You can poll until funds arrive:
+`fetchPaid(url, init, opts)` makes the request. On an AIFP-1 `402` it gets a signed quote, settles one batch from the agent's wallet, exchanges it for a receipt and retries; later requests the receipt covers cost no transaction.
 
 ```ts
-// Block until the wallet holds at least $0.01 on-chain
-await agent.waitForFunding({ minUsdCents: 1 });
-```
-</Step>
+import { AiFinPayAgent } from "@aifinpay/agent";
 
-<Step title="Pay and get the response">
-```ts
-const res = await agent.pay(
-  "https://bridge.aifinpay.io/io-net/chat/completions",
+const agent = await AiFinPayAgent.fromEnvironment();
+agent.setBudget({ daily_usd: 1.0, per_call_usd: 0.05 });
+
+const url = "https://wp-demo.aifinpay.io/wp-json/aifinpay-demo/v1/market-snapshot";
+
+const response = await agent.fetchPaid(
+  url,
+  {},
   {
-    body: {
-      model: "meta-llama/Llama-3.3-70B-Instruct",
-      messages: [{ role: "user", content: "Hello" }],
+    gatewayOrigins: ["https://wp-demo.aifinpay.io"],
+    resourcePathMode: "direct",
+    scope: "exact",
+    maxAmountUsd: 0.05,
+    nativeUsdPrice: readFreshIndependentPolPrice,
+    v14: {
+      maxGasWei: ownerGasLimitWei,
+      onPrepared: persistPrivatePaymentJournal,
     },
-  },
+  }
 );
 
-const data = await res.json();
-console.log(data.choices[0].message.content);
+if (response) console.log(response.status, await response.json());
 ```
 
-`agent.pay()` handles the whole 402 dance for you: it reads the challenge, settles the payment on-chain, retries with the proof, and returns the upstream response.
-</Step>
-</Steps>
+The demo route is priced at $0.0005 per request; the smallest payment, $0.02, buys a batch of requests.
 
-## The capability layer: `AiFinPayAgent`
+You supply three things:
 
-`agent.pay(url)` is perfect when you already know the endpoint. When you'd rather ask for a **capability** ("search this", "run this inference") and let AiFinPay route to the best live provider, use the unified `AiFinPayAgent`. It manages both a Solana and an EVM identity and settles each call atomically on-chain.
+- `readFreshIndependentPolPrice` returns `{ usd, observedAtMs }` (sync or async) from a POL/USD source you trust. It is called only when buying, never when reusing a receipt.
+- `ownerGasLimitWei` is your gas budget in wei for approval plus settlement. Gas is separate from the USD limits.
+- `persistPrivatePaymentJournal` receives the quote, chain, transaction hash and signed transaction. It must persist and fsync them privately before it resolves; if it fails, nothing is broadcast. Never log the raw transaction or the receipt.
+
+Nothing is signed unless the origin is in `gatewayOrigins`, the signed quote matches the challenge and the SDK's pinned deployment, and the batch fits your limits.
+
+## Limits
+
+- `setBudget({ daily_usd, per_call_usd })` caps spend over 24 hours and per call. `agent.getSpend24h()` reads the rolling total.
+- `maxAmountUsd` caps one purchase.
+- `v14.maxGasWei` caps gas.
+
+Polygon is the default. To pay on another network the merchant accepts, set `v14.chain` yourself; a quote never chooses the chain for you.
+
+## When a payment does not finish
+
+- **Transport error after paying.** Call `agent.recoverPaidPayment(recovery)` with the recovery object your `onPrepared` saved. It retries receipt issuance only and never sends a second transaction.
+- **`Aifp1ActiveReceiptError`** (`code: "AIFP1_ACTIVE_RECEIPT"`). Within a minute of a settled purchase, the same payer and resource get the existing receipt instead of a quote. Nothing was quoted or paid. Recover it from the recovery saved for `e.txRef`:
+
+  ```ts
+  import { Aifp1ActiveReceiptError } from "@aifinpay/agent";
+
+  try {
+    return await agent.fetchPaid(url, {}, opts);
+  } catch (e) {
+    if (!(e instanceof Aifp1ActiveReceiptError)) throw e;
+    const paid = await agent.recoverPaidPayment(savedRecoveryFor(e.txRef));
+    return fetch(url, { headers: { "AIFP-Receipt": paid.receipt } });
+  }
+  ```
+
+  Do not retry `fetchPaid` to get past it: once the minute is over, a new quote is a new purchase.
+- **`Aifp1MerchantChangedError`** (`code: "AIFP1_MERCHANT_CHANGED"`). A gateway site (`https://gateway.aifinpay.io/<slug>`) is pinned to the merchant it was first paid as. If the change is legitimate, say so for that call with `{ allowMerchantChange: true }`, or name the merchant you trust with `{ expectedMerchantId: "mrch_…" }`.
+- **`Aifp1GatewayRetiredError`** (`code: "AIFP1_GATEWAY_RETIRED"`). The slug answers `410 gateway_retired`. Do not retry it.
+
+## Link the agent to your dashboard
+
+At [dash.aifinpay.io](https://dash.aifinpay.io) → **My Agents** → **Add agent by address** you get a challenge. Sign it and hand back the signature:
 
 ```ts
-import { AiFinPayAgent } from "@aifinpay/agent";
-
-// AiFinPayAgent.new() is async — it provisions both keypairs.
-const agent = await AiFinPayAgent.new();
-
-console.log("Solana address:", agent.solanaAddress);
-console.log("EVM address:   ", agent.evmAddress);
+const signature = await agent.signDashboardClaim(challenge);
 ```
 
-<Warning>
-The unified `call()` / capability flow settles per-call payments on Polygon mainnet by default, so fund the **EVM address** (`agent.evmAddress`) with a few cents of MATIC. Use `agent.balance()` to confirm funds landed.
-</Warning>
+`signDashboardClaim` signs only `AiFinPay-claim:polygon:<this address>:<nonce>` and refuses any other text. You then see the agent's balance, payments and receipts.
 
-### Discover providers
+## Name the AI client that pays
 
-`discover()` browses the live provider catalog. Filter by `category` (`"search"`, `"inference"`, `"image"`, `"speech"`) and/or free-text `q`. Each entry carries live connectivity so you can rank client-side too.
+Set `framework` and every request of the payment flow carries `AIFP-Agent-Framework: <value>`, so the merchant dashboard shows which AI client paid:
 
 ```ts
-const providers = await agent.discover({ category: "search", limit: 5 });
-
-for (const p of providers) {
-  console.log(p.slug, p.name, p.price_usd, p.status, `${p.latency_ms}ms`);
-  // e.g. "exa  Exa Search  0.005  live  120ms"
-}
+const agent = await AiFinPayAgent.fromEnvironment({ framework: "claude" });
 ```
 
-Each result is a `DiscoveredProvider`: `slug`, `name`, `price_usd`, `availability` (`"available"` | `"recruiting"`), `status` (`"live"` | `"down"` | `"unknown"`), `latency_ms`, and an optional transparent `score`.
+Accepted values: `chatgpt`, `claude`, `perplexity`, `gemini`, `cursor`, `openai-agents`, `windsurf`, `codex`, `custom`. Leave it unset and no header is sent.
 
-### Pick the single best provider
-
-`pickProvider()` asks the gateway for the best available provider in a category, ranked by price, latency, liveness, and on-chain trust. Cap the candidate set with `maxPriceUsd`.
-
-```ts
-const best = await agent.pickProvider("inference", { maxPriceUsd: 0.05 });
-console.log("Routing to:", best.name, "@", best.price_usd, "USD/call");
-```
-
-It throws `ProviderUnknownError` when nothing payable matches.
-
-### One-line web search
-
-`webSearch()` is the highest-level call: it picks the best search provider, pays it, and returns the response. It resolves to `null` only if a budget cap is hit in `"skip"` mode (see below).
-
-```ts
-const res = await agent.webSearch("latest Solana TPS benchmarks");
-if (res) {
-  const data = await res.json();
-  console.log(data);
-}
-```
-
-The sibling capability methods follow the same shape:
-
-<CodeGroup>
-```ts webSearch
-await agent.webSearch("who founded CoinSecurities?");
-```
-
-```ts infer
-await agent.infer({
-  model: "meta-llama/Llama-3.3-70B-Instruct",
-  messages: [{ role: "user", content: "Summarize x402 in one line." }],
-});
-```
-
-```ts image
-await agent.image("a neon terminal paying an API, vaporwave");
-```
-
-```ts voice
-await agent.voice("Payment settled on-chain.");
-```
-</CodeGroup>
-
-### Call a provider by name
-
-If you already know which provider you want, skip routing and call it directly. `call()` resolves the provider, picks a chain, settles on-chain, and retries with payment proof.
-
-```ts
-const res = await agent.call({
-  provider: "io-net",
-  body: {
-    model: "meta-llama/Llama-3.3-70B-Instruct",
-    messages: [{ role: "user", content: "Hello" }],
-  },
-});
-
-if (res) {
-  const data = await res.json();
-  console.log(data.choices[0].message.content);
-}
-```
-
-`call()` accepts `{ provider, body, cost?, chain?, bridgeUrl?, method?, timeoutMs?, signal? }` and returns `Promise<Response | null>`.
-
-## Budget caps
-
-Cap per-call and daily spend at construction time, or update later with `setBudget()`. With `on_limit_exceeded: "skip"`, a call that would breach a cap resolves to `null` instead of paying — useful in loops where you'd rather drop a task than overspend.
-
-```ts
-const agent = await AiFinPayAgent.new({
-  budgetCaps: {
-    daily_usd: 5.0,
-    per_call_usd: 0.10,
-    on_limit_exceeded: "skip", // default is "throw" (BudgetCapExceededError)
-  },
-});
-
-// ...later
-agent.setBudget({ daily_usd: 20.0 });
-console.log("Spent in last 24h:", agent.getSpend24h(), "USD");
-```
-
-## Check balances across chains
-
-`balance()` returns a USD-normalised snapshot across both chains, plus rolling 24h spend and the active caps.
-
-```ts
-const snap = await agent.balance();
-console.log("Total:", snap.agent_balance_usd, "USD");
-console.log("Polygon:", snap.chains.polygon.matic, "MATIC,", snap.chains.polygon.usdc, "USDC");
-console.log("Solana: ", snap.chains.solana.sol, "SOL,", snap.chains.solana.usdc, "USDC");
-console.log("24h spend:", snap.spend_24h_usd, "USD");
-```
-
-<Note>
-The snapshot may still report `msecco_balance` per chain. It is always zero: mSECCO was retired on 2026-08-06, and the token was never minted. Ignore the field; it will be removed.
-</Note>
-
-## Loading an existing keypair
-
-To reuse an agent identity across runs, load it instead of generating a new one.
-
-<Tabs>
-<Tab title="Agent (simple)">
-```ts
-import { Agent } from "@aifinpay/agent";
-
-// From a solana-keygen JSON file (Node only)
-const a1 = await Agent.fromKeypairFile("./agent-wallet.json");
-
-// From a base58 secret string (also works in the browser)
-const a2 = Agent.fromSecretB58("3RvZm7Gw...");
-```
-</Tab>
-
-<Tab title="AiFinPayAgent (unified)">
-```ts
-import { AiFinPayAgent } from "@aifinpay/agent";
-
-// Derives the matching EVM address deterministically from the Solana secret.
-const agent = await AiFinPayAgent.fromSolanaSecret("3RvZm7Gw...");
-
-// Or derive both chains from a single 32-byte hex seed (one backup, two chains)
-const seeded = await AiFinPayAgent.fromSeed("0xabc123...");
-```
-</Tab>
-</Tabs>
-
-## How a payment settles
-
-You see one function call. Under the hood, for every paid request the SDK:
-
-1. Sends the request unauthenticated → the bridge replies with **HTTP 402** and a JSON challenge listing chain, asset, recipient, amount and `nonce`.
-2. Settles on-chain — either an Ed25519-signed Solana challenge or a Polygon `B2BSplitter.payMatic()` transaction, depending on what the server accepts. The split is atomic (merchant / treasury / IP-creator) and no custodian ever holds the funds.
-3. Retries the original request with the payment proof header (e.g. `x-tx-hash` + `x-order-id` on Polygon, or `x-solana-tx` on Solana).
-4. Returns the upstream response once the bridge has verified settlement on-chain.
-
-All transactions are public on Solana and Polygon mainnet.
+The provider bridge (`agent.pay` to the AiFinPay bridge host, `call()`) was retired on 2026-10-12.
 
 ## Next steps
 

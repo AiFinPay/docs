@@ -3,16 +3,16 @@ title: "Connect the AiFinPay MCP server"
 description: "Set up a persistent agent wallet, pay within a built-in ceiling, and link the agent to your dashboard."
 ---
 
+import CurrentVersions from "/snippets/current-versions.mdx";
+
 `@aifinpay/mcp` connects AiFinPay tools to an MCP-compatible assistant. Install
 [the payer skill](/skills) first so the assistant knows the workflow.
 
-<Note>
-This page describes **@aifinpay/mcp 2.16.3**. Payments are on from the first
-start, within a built-in ceiling of **$5 per payment and $20 per 24 hours**;
-nothing in the MCP client config has to change to pay. `payable_fetch` signs
-only with a persistent wallet, so an unfunded fresh install spends nothing.
-A quote or invoice does not move funds.
-</Note>
+<CurrentVersions />
+
+Payments are on from the first start; nothing in the MCP client config has to
+change to pay. `payable_fetch` signs only with a persistent wallet, so an
+unfunded fresh install spends nothing.
 
 ## First payment: init → fund → link → pay
 

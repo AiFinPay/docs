@@ -3,6 +3,8 @@ title: "AiFinPay — Payment Infrastructure for AI Agents"
 description: "Public skills, agent tooling and merchant payment gates for paid access over HTTP."
 ---
 
+import CurrentVersions from "/snippets/current-versions.mdx";
+
 **AiFinPay is payment infrastructure for AI agents.** A merchant can publish
 paid resources through an HTTP 402 gate. An agent discovers the terms and,
 when its client supports the offered settlement route, buys access and reuses
@@ -12,8 +14,8 @@ a scoped payment receipt.
   <Card title="I own an agent" icon="wallet" href="/skills">
     Install the payer skill, connect your tools and inspect a site's paid routes.
   </Card>
-  <Card title="I own a site or API" icon="store" href="/skills">
-    Use the merchant skill to integrate the gate and publish your API catalog.
+  <Card title="I own a site or API" icon="store" href="/charge/onboarding">
+    WordPress, Drupal or the AiFinPay paid address. Watch agent traffic first, then charge.
   </Card>
 </CardGroup>
 
@@ -27,13 +29,9 @@ Choose `aifinpay` for the paying side or `aifinpay-merchant` for the merchant
 side. Skills provide instructions; MCP and SDK packages provide tools.
 Read [the skill setup guide](/skills) and [quickstart](/quickstart).
 
-<Note>
-MCP `@aifinpay/mcp` 2.2.x pays with `payable_fetch` once the owner enables it,
-and Node `@aifinpay/agent` 2.1.x pays with `fetchPaid`. Both settle AIFP-1 on
-Polygon (splitter v1.4) in native POL; the smallest batch is $0.02 plus gas. The
-Python SDK does not pay yet. A quote or invoice alone does not move funds.
+<CurrentVersions />
+
 See [current payment support](/pay/paywalled-sites).
-</Note>
 
 ## How the gate works
 
